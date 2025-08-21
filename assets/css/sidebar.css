@@ -1,0 +1,230 @@
+/* 
+ * Sidebar Override CSS - Erzwingt einheitliches Sidebar-Verhalten überall
+ * Diese Datei mit !important Regeln stellt sicher, dass die Sidebar 
+ * auf allen Seiten gleich funktioniert, unabhängig von anderen CSS-Dateien
+ */
+
+/* Layout-Regeln mit !important */
+.app-layout {
+  display: flex !important;
+  min-height: 100vh !important;
+}
+
+/* Desktop Sidebar */
+.sidebar {
+  width: 250px !important;
+  background-color: var(--clr-surface-a10) !important;
+  border-right: 1px solid var(--clr-surface-a20) !important;
+  padding: 20px 0 !important;
+  position: sticky !important;
+  top: 0 !important;
+  height: 100vh !important;
+  overflow-y: auto !important;
+  flex-shrink: 0 !important;
+}
+
+/* Main Content */
+.main-content {
+  flex: 1 !important;
+  padding: 20px !important;
+  background-color: var(--clr-surface-a0) !important;
+  min-height: 100vh !important;
+}
+
+/* Sidebar Header */
+.sidebar-header {
+  padding: 20px !important;
+  border-bottom: 1px solid var(--clr-surface-a20) !important;
+  margin-bottom: 20px !important;
+  text-align: center !important;
+}
+
+.sidebar-logo {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  margin-bottom: 15px !important;
+  text-decoration: none !important;
+  transition: transform 0.2s ease !important;
+}
+
+.sidebar-logo:hover {
+  transform: scale(1.02) !important;
+}
+
+.sidebar-logo-image {
+  width: 100px !important;
+  height: 100px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3)) !important;
+}
+
+.sidebar-logo-text {
+  color: var(--clr-primary-a20) !important;
+  font-size: 1.4rem !important;
+  font-weight: 700 !important;
+  margin: 0 !important;
+}
+
+.sidebar-welcome {
+  color: var(--clr-surface-a50) !important;
+  font-size: 14px !important;
+  margin: 0 !important;
+}
+
+/* Sidebar Navigation */
+.sidebar-nav {
+  list-style: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.sidebar-nav li {
+  margin-bottom: 5px !important;
+}
+
+.sidebar-nav a {
+  display: flex !important;
+  align-items: center !important;
+  padding: 12px 20px !important;
+  color: var(--clr-surface-a50) !important;
+  text-decoration: none !important;
+  transition: all 0.3s ease !important;
+  border-right: 3px solid transparent !important;
+}
+
+.sidebar-nav a:hover,
+.sidebar-nav a.active {
+  background-color: var(--clr-surface-tonal-a10) !important;
+  color: var(--clr-primary-a20) !important;
+  border-right: 3px solid var(--clr-primary-a0) !important;
+}
+
+.sidebar-nav a i {
+  margin-right: 0 !important;
+  width: auto !important;
+}
+
+/* Tablet Responsive (1024px und kleiner) */
+@media (max-width: 1024px) {
+  .main-content {
+    padding: 15px !important;
+  }
+}
+
+/* Mobile Responsive (768px und kleiner) */
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column !important;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--clr-surface-a20) !important;
+    padding: 15px 0 !important;
+  }
+
+  .sidebar-header {
+    padding: 15px !important;
+    margin-bottom: 15px !important;
+  }
+
+  .sidebar-logo {
+    flex-direction: row !important;
+    gap: 8px !important;
+  }
+
+  .sidebar-logo-image {
+    width: 35px !important;
+    height: 35px !important;
+  }
+
+  .sidebar-logo-text {
+    font-size: 1.2rem !important;
+  }
+
+  .sidebar-nav {
+    display: flex !important;
+    overflow-x: auto !important;
+    padding: 0 10px !important;
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* Internet Explorer 10+ */
+  }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none !important; /* WebKit */
+  }
+
+  .sidebar-nav li {
+    margin-bottom: 0 !important;
+    margin-right: 5px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .sidebar-nav a {
+    padding: 10px 15px !important;
+    border-right: none !important;
+    border-bottom: 3px solid transparent !important;
+    white-space: nowrap !important;
+    min-width: auto !important;
+  }
+
+  .sidebar-nav a.active,
+  .sidebar-nav a:hover {
+    border-right: none !important;
+    border-bottom: 3px solid var(--clr-primary-a0) !important;
+    background-color: var(--clr-surface-tonal-a10) !important;
+  }
+
+  .main-content {
+    padding: 15px !important;
+  }
+}
+
+/* Sehr kleine Mobile Screens (480px und kleiner) */
+@media (max-width: 480px) {
+  .sidebar-logo-image {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .sidebar-logo-text {
+    font-size: 1.1rem !important;
+  }
+
+  .sidebar-nav a {
+    padding: 8px 12px !important;
+    font-size: 14px !important;
+  }
+
+  .main-content {
+    padding: 10px !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .sidebar {
+    display: none !important;
+  }
+
+  .app-layout {
+    flex-direction: column !important;
+  }
+
+  .main-content {
+    padding: 0 !important;
+  }
+}
+
+/* Reduced Motion für Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-nav a,
+  .sidebar-logo {
+    transition: none !important;
+  }
+}

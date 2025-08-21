@@ -1,0 +1,341 @@
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--clr-surface-a20);
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.welcome-text h1 {
+  color: var(--clr-primary-a20);
+  margin-bottom: 5px;
+}
+
+.welcome-text p {
+  color: var(--clr-surface-a50);
+}
+
+.quick-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Neues Layout: Gesamtvermögen alleine oben */
+.wealth-card-container {
+  margin-bottom: 30px;
+}
+
+.wealth-card {
+  background: linear-gradient(
+    135deg,
+    var(--clr-surface-a10) 0%,
+    var(--clr-surface-tonal-a10) 100%
+  );
+  border: 1px solid var(--clr-primary-a0);
+  border-radius: 12px;
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.wealth-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--clr-primary-a0),
+    var(--clr-primary-a20)
+  );
+}
+
+.wealth-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.wealth-card h2 {
+  color: var(--clr-primary-a20);
+  margin: 0;
+  font-size: 24px;
+}
+
+.wealth-value {
+  font-size: 48px;
+  font-weight: bold;
+  color: var(--clr-primary-a0);
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.wealth-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.breakdown-item {
+  text-align: center;
+  padding: 15px;
+  background: var(--clr-surface-a05);
+  border-radius: 8px;
+  border: 1px solid var(--clr-surface-a10);
+}
+
+.breakdown-value {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.breakdown-label {
+  color: var(--clr-surface-a50);
+  font-size: 14px;
+}
+
+.positive {
+  color: #22c55e;
+}
+
+.negative {
+  color: #ef4444;
+}
+
+.neutral {
+  color: var(--clr-surface-a70);
+}
+
+/* NEUE CSS-Klassen für Schulden */
+.debt-positive {
+  color: #22c55e;
+}
+
+.debt-negative {
+  color: #f97316;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  background: var(--clr-surface-a05);
+  border: 1px solid var(--clr-surface-a10);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.stat-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.stat-icon {
+  font-size: 24px;
+  margin-right: 10px;
+}
+
+.stat-title {
+  font-weight: bold;
+  color: var(--clr-surface-a70);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.stat-subtitle {
+  color: var(--clr-surface-a50);
+  font-size: 14px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.card {
+  background: var(--clr-surface-a05);
+  border: 1px solid var(--clr-surface-a10);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--clr-surface-a10);
+}
+
+.card h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.transaction-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--clr-surface-a05);
+}
+
+.transaction-item:last-child {
+  border-bottom: none;
+}
+
+.transaction-info {
+  flex: 1;
+}
+
+.transaction-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.transaction-meta {
+  color: var(--clr-surface-a50);
+  font-size: 14px;
+}
+
+.transaction-amount {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.investment-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--clr-surface-a05);
+}
+
+.investment-item:last-child {
+  border-bottom: none;
+}
+
+.investment-info {
+  flex: 1;
+}
+
+.investment-symbol {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.investment-name {
+  color: var(--clr-surface-a50);
+  font-size: 14px;
+}
+
+.investment-value {
+  text-align: right;
+}
+
+.investment-current {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.investment-change {
+  font-size: 14px;
+}
+
+.price-unavailable {
+  color: var(--clr-surface-a50);
+  font-style: italic;
+}
+
+.info-box {
+  background: var(--clr-surface-a05);
+  border: 1px solid var(--clr-surface-a10);
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 30px;
+}
+
+.info-title {
+  font-weight: bold;
+  color: var(--clr-primary-a20);
+  margin-bottom: 10px;
+}
+
+.info-text {
+  color: var(--clr-surface-a70);
+  line-height: 1.5;
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--clr-surface-a50);
+  padding: 40px 20px;
+}
+
+.empty-state h3 {
+  margin-bottom: 10px;
+}
+
+.empty-state p {
+  margin-bottom: 20px;
+}
+
+.income {
+  color: #22c55e;
+}
+
+.expense {
+  color: #ef4444;
+}
+
+.debt_in {
+  color: #22c55e;
+}
+
+.debt_out {
+  color: #f97316;
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wealth-breakdown {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .wealth-value {
+    font-size: 36px;
+  }
+}
