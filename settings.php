@@ -114,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <main class="main-content">
             <div class="page-header">
                 <div>
-                    <h1 style="color: var(--clr-primary-a20); margin-bottom: 5px;">⚙️ Einstellungen</h1>
+                    <h1 style="color: var(--clr-primary-a20); margin-bottom: 5px;"><i class="fa-solid fa-gear"></i> Einstellungen</h1>
                     <p style="color: var(--clr-surface-a50);">Verwalte dein Startkapital und Kontoeinstellungen</p>
                 </div>
                 <a href="dashboard.php" class="btn btn-secondary">← Zurück zum Dashboard</a>
@@ -175,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <!-- Vermögensübersicht - KOMPLETT REPARIERT -->
                 <div class="settings-card">
                     <div class="card-header">
-                        <div class="card-icon">📊</div>
+                        <div class="card-icon"><i class="fa-solid fa-dollar"></i></div>
                         <div class="card-title">Vermögensübersicht</div>
                     </div>
 
