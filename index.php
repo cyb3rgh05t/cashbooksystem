@@ -105,6 +105,47 @@ if (isset($_SESSION['logout_message'])) {
             color: var(--clr-surface-a50);
             font-size: 14px;
         }
+
+        /* Demo Info Box */
+        .demo-info {
+            background: var(--clr-surface-tonal-a10);
+            border: 1px solid var(--clr-primary-a20);
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 20px;
+            font-size: 13px;
+        }
+
+        .demo-info-title {
+            color: var(--clr-primary-a20);
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center !important;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .demo-credentials {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .demo-credential {
+            text-align: center;
+        }
+
+        .demo-credential strong {
+            color: var(--clr-primary-a20);
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .demo-credential span {
+            color: var(--clr-surface-a50);
+            font-size: 12px;
+        }
     </style>
 </head>
 
@@ -141,6 +182,23 @@ if (isset($_SESSION['logout_message'])) {
 
                 <button type="submit" class="btn btn-full">Anmelden</button>
             </form>
+
+            <!-- Demo Credentials -->
+            <div class="demo-info">
+                <div class="demo-info-title">
+                    Demo-Zugangsdaten
+                </div>
+                <div class="demo-credentials">
+                    <div class="demo-credential">
+                        <strong>Admin</strong>
+                        <span>admin / admin123</span>
+                    </div>
+                    <div class="demo-credential">
+                        <strong>Demo User</strong>
+                        <span>demo / demo123</span>
+                    </div>
+                </div>
+            </div>
 
             <div class="form-footer">
                 <?php
