@@ -1,6 +1,7 @@
 <?php
-// config/crypto_api.php - Erweiterte Version mit allen Verbesserungen
-// ALLE BESTEHENDEN FUNKTIONEN BLEIBEN UNVERÄNDERT + NEUE FEATURES
+
+require_once __DIR__ . '/../includes/timezone.php';
+TimezoneHelper::initializeTimezone();
 
 class CryptoAPI
 {
@@ -64,7 +65,7 @@ class CryptoAPI
         // Info-Datei erstellen
         $info_file = $cache_dir . '/cache_info.txt';
         if (!file_exists($info_file)) {
-            file_put_contents($info_file, "Meine Firma Finance Crypto Cache\nErstellt: " . date('Y-m-d H:i:s'));
+            file_put_contents($info_file, "Meine Firma Finance Crypto Cache\nErstellt: " . TimezoneHelper::getCurrentUserTime('Y-m-d H:i:s'));
         }
     }
 
@@ -566,7 +567,7 @@ class CryptoAPI
             return;
         }
 
-        $timestamp = date('Y-m-d H:i:s');
+        $timestamp = TimezoneHelper::getCurrentUserTime('Y-m-d H:i:s');
         $log_entry = "[$timestamp] [$level] $message" . PHP_EOL;
 
         // Log in Datei schreiben (mit Fehlerbehandlung)

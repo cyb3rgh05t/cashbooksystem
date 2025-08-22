@@ -4,3 +4,6 @@ test-*.php
 *.log
 *.json
 *.txt
+*.ico
+*.png
+

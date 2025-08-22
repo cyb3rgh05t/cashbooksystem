@@ -74,7 +74,9 @@ class Database
                 last_login DATETIME,
                 starting_balance REAL DEFAULT 0.00,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                timezone TEXT DEFAULT 'Europe/Berlin',
+                timezone_manual INTEGER DEFAULT 0
             );
 
             -- Sessions Tabelle für Login-Tracking
@@ -268,8 +270,8 @@ class Database
             // Debt categories
             ['name' => 'Firma → Privat', 'type' => 'debt_out', 'color' => '#fbbf24', 'icon' => '<i class="fa-solid fa-money-bill-wave"></i>'],
             ['name' => 'Privat → Firma', 'type' => 'debt_in',  'color' => '#22c55e', 'icon' => '<i class="fa-solid fa-sack-dollar"></i>'],
-            ['name' => 'Darlehen vergeben', 'type' => 'debt_out', 'color' => '#f97316', 'icon' => '🤝'],
-            ['name' => 'Darlehen erhalten', 'type' => 'debt_in',  'color' => '#3b82f6', 'icon' => '🏦'],
+            ['name' => 'Darlehen vergeben', 'type' => 'debt_out', 'color' => '#f97316', 'icon' => '<i class="fa-solid fa-handshake"></i>'],
+            ['name' => 'Darlehen erhalten', 'type' => 'debt_in',  'color' => '#3b82f6', 'icon' => '<i class="fa-solid fa-handshake"></i>'],
         ];
 
         $stmt = $pdo->prepare('

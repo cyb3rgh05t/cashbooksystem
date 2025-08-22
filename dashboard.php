@@ -7,15 +7,26 @@
 
 require_once 'includes/auth.php';
 require_once 'config/database.php';
+require_once 'includes/timezone.php';  // Timezone Helper
 require_once 'includes/init_logger.php';
 
-// Require login mit Auth-Klasse
+// Require login
 $auth->requireLogin();
+
+// Initialisiere Zeitzone (prüft automatisch DB-Einstellungen)
+TimezoneHelper::initializeTimezone();
 
 // Get current user
 $currentUser = $auth->getCurrentUser();
 $user_id = $currentUser['id'];
 $username = $currentUser['username'];
+
+// Prüfe ob User gerade eingeloggt hat
+$justLoggedIn = false;
+if (isset($_SESSION['just_logged_in'])) {
+    $justLoggedIn = true;
+    unset($_SESSION['just_logged_in']); // Nur einmal verwenden
+}
 
 // Database connection
 $db = new Database();
@@ -519,7 +530,7 @@ $due_recurring = $db->getDueRecurringTransactions($user_id, 3);
                     <div class="wealth-card-header">
                         <h2><i class="fa-solid fa-globe"></i> Gesamtvermögen</h2>
                         <div style="color: var(--clr-surface-a50); font-size: 14px;">
-                            Stand: <?= date('d.m.Y H:i') ?>
+                            Stand: <?= TimezoneHelper::getCurrentUserTime('d.m.Y H:i') ?>
                         </div>
                     </div>
 
@@ -635,7 +646,7 @@ $due_recurring = $db->getDueRecurringTransactions($user_id, 3);
                                     </div>
                                     <div class="transaction-meta">
                                         <?= htmlspecialchars($transaction['category_name']) ?> •
-                                        <?= date('d.m.Y', strtotime($transaction['date'])) ?>
+                                        <?= TimezoneHelper::convertToUserTimezone($transaction['date'], 'd.m.Y') ?>
                                     </div>
                                 </div>
                                 <div class="transaction-amount <?= $transaction['transaction_type'] ?>">
@@ -785,40 +796,145 @@ $due_recurring = $db->getDueRecurringTransactions($user_id, 3);
                 </div>
             <?php endif; ?>
 
-            <!-- Verbesserte Vermögensberechnung -->
-            <div class="wealth-calculation-card">
-                <div class="wealth-header">
-                    <div class="header-icon">
-                        <i class="fas fa-sync-alt"></i>
-                    </div>
-                    <h3 class="header-title">Wiederkehrende Transaktionen</h3>
-                </div>
-
-                <?php if (!empty($due_recurring)): ?>
-                    <div class="info-box-modern">
-                        <div class="info-content">
-
+            <!-- Verbesserte Wiederkehrende Transaktionen (nur anzeigen wenn vorhanden) -->
+            <?php if ($recurring_stats['total_recurring'] > 0): ?>
+                <div class="wealth-calculation-card">
+                    <div class="wealth-header">
+                        <div class="header-icon">
+                            <i class="fas fa-sync-alt"></i>
                         </div>
-                        <div class="info-text-content">
-                            <div class="info-title-modern">🔔 Fällige wiederkehrende Transaktionen</div>
-                            <div class="info-description">
-                                <?php foreach ($due_recurring as $due): ?>
-                                    • <?= htmlspecialchars($due['category_name']) ?>: €<?= number_format($due['amount'], 2, ',', '.') ?> (<?= date('d.m.Y', strtotime($due['next_due_date'])) ?>)<br>
-                                <?php endforeach; ?>
-                                Vergiss nicht, deine wiederkehrenden Transaktionen zu überprüfen.
+                        <h3 class="header-title">Wiederkehrende Transaktionen</h3>
+                    </div>
+
+                    <!-- Statistik-Karten für wiederkehrende Transaktionen -->
+                    <div class="debt-stats-grid">
+                        <div class="debt-stat-card neutral">
+                            <div class="stat-icon-modern">
+                                <i class="fas fa-calendar-check"></i>
                             </div>
-                            <a href="modules/recurring/index.php" class="info-link">
-                                <span>Wiederkehrende Transaktionen verwalten</span>
-                                <i class="fas fa-arrow-right"></i>
-                            </a>
+                            <div class="stat-value-modern neutral"><?= $recurring_stats['active_recurring'] ?></div>
+                            <div class="stat-label-modern">Aktive</div>
+                        </div>
+
+                        <div class="debt-stat-card <?= $recurring_stats['due_soon'] > 0 ? 'positive' : 'neutral' ?>">
+                            <div class="stat-icon-modern">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-value-modern <?= $recurring_stats['due_soon'] > 0 ? 'positive' : 'neutral' ?>"><?= $recurring_stats['due_soon'] ?></div>
+                            <div class="stat-label-modern">Fällig (7 Tage)</div>
+                        </div>
+
+                        <div class="debt-stat-card <?= $recurring_stats['overdue'] > 0 ? 'negative' : 'neutral' ?>">
+                            <div class="stat-icon-modern">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="stat-value-modern <?= $recurring_stats['overdue'] > 0 ? 'negative' : 'neutral' ?>"><?= $recurring_stats['overdue'] ?></div>
+                            <div class="stat-label-modern">Überfällig</div>
                         </div>
                     </div>
-            </div>
-        <?php endif; ?>
+
+                    <?php if (!empty($due_recurring)): ?>
+                        <div class="info-box-modern">
+                            <div class="info-content">
+                                <div class="info-icon-large">
+                                    <i class="fas fa-bell"></i>
+                                </div>
+                                <div class="info-text-content">
+                                    <div class="info-title-modern">
+                                        <?php if ($recurring_stats['overdue'] > 0): ?>
+                                            ⚠️ Du hast überfällige wiederkehrende Transaktionen
+                                        <?php elseif ($recurring_stats['due_soon'] > 0): ?>
+                                            🔔 Wiederkehrende Transaktionen sind bald fällig
+                                        <?php else: ?>
+                                            ✅ Alle wiederkehrenden Transaktionen sind aktuell
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="info-description">
+                                        <?php
+                                        $displayed = 0;
+                                        foreach ($due_recurring as $due):
+                                            if ($displayed >= 3) break;
+                                            $displayed++;
+                                        ?>
+                                            • <?= htmlspecialchars($due['category_name']) ?>: €<?= number_format($due['amount'], 2, ',', '.') ?>
+                                            (<?= date('d.m.Y', strtotime($due['next_due_date'])) ?>)<br>
+                                        <?php endforeach; ?>
+                                        <?php if (count($due_recurring) > 3): ?>
+                                            <em>... und <?= count($due_recurring) - 3 ?> weitere</em><br>
+                                        <?php endif; ?>
+                                    </div>
+                                    <a href="modules/recurring/index.php" class="info-link">
+                                        <span>Alle wiederkehrenden Transaktionen verwalten</span>
+                                        <i class="fas fa-arrow-right"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="info-box-modern">
+                            <div class="info-content">
+                                <div class="info-icon-large">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                                <div class="info-text-content">
+                                    <div class="info-title-modern">
+                                        ✅ Keine fälligen Transaktionen
+                                    </div>
+                                    <div class="info-description">
+                                        Du hast <?= $recurring_stats['active_recurring'] ?> aktive wiederkehrende Transaktion<?= $recurring_stats['active_recurring'] != 1 ? 'en' : '' ?>,
+                                        aber momentan ist nichts fällig. Alles im grünen Bereich!
+                                    </div>
+                                    <a href="modules/recurring/index.php" class="info-link">
+                                        <span>Wiederkehrende Transaktionen verwalten</span>
+                                        <i class="fas fa-arrow-right"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
     </div>
     </div>
     </main>
     </div>
+    <?php if ($justLoggedIn): ?>
+        <!-- NUR nach dem Login: Sende Browser-Zeitzone -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // Erkenne Browser-Zeitzone
+                const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                console.log('Login erkannt - prüfe Zeitzone:', browserTimezone);
+
+                // Sende an Server (wird nur übernommen wenn nicht manuell gesetzt)
+                fetch('ajax/set_timezone.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            timezone: browserTimezone,
+                            force: false // Respektiere manuelle Einstellungen
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            console.log('✅ Browser-Zeitzone übernommen:', data.timezone);
+                            // Optional: Seite neu laden für korrekte Zeitanzeige
+                            if (data.timezone !== '<?= TimezoneHelper::getCurrentTimezone() ?>') {
+                                location.reload();
+                            }
+                        } else if (data.manually_set) {
+                            console.log('ℹ️ Behalte manuelle Einstellung:', data.current_timezone);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Fehler:', error);
+                    });
+            });
+        </script>
+    <?php endif; ?>
 </body>
 
 </html>

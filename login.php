@@ -169,7 +169,7 @@ if (isset($_SESSION['logout_message'])) {
                 <div class="alert alert-success"><?= htmlspecialchars($success_message) ?></div>
             <?php endif; ?>
 
-            <!-- Login Form - OHNE Tabs -->
+            <!-- Login Form -->
             <form action="auth/login.php" method="POST">
                 <div class="form-group">
                     <label class="form-label" for="username">Benutzername</label>
@@ -203,14 +203,16 @@ if (isset($_SESSION['logout_message'])) {
 
             <div class="form-footer">
                 <?php
-                // Erweiterte Version - zeigt Startjahr bis aktuelles Jahr (falls unterschiedlich):
-                $start_year = 2024; // oder wann auch immer du angefangen hast
+                $start_year = 2024;
                 $current_year = date('Y');
                 ?>
                 <p>© <?= $start_year == $current_year ? $current_year : $start_year . ' - ' . $current_year ?> · Flammang Yves</p>
             </div>
         </div>
     </div>
+
+    <!-- ENTFERNT: Das JavaScript für Zeitzone wird nie ausgeführt hier, 
+         da $_SESSION['user_id'] auf der Login-Seite nicht existiert -->
 </body>
 
 </html>

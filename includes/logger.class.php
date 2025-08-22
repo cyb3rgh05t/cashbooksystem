@@ -1,5 +1,9 @@
 <?php
 
+require_once 'timezone.php';
+TimezoneHelper::initializeTimezone();
+
+
 /**
  * Logger Class für Cashbook System
  * Protokolliert Systemereignisse in Datenbank UND Dateien
@@ -100,7 +104,7 @@ class Logger
         $logFile = $logDir . DIRECTORY_SEPARATOR . 'system_' . date('Y-m-d') . '.log';
 
         // Formatiere Log-Eintrag
-        $timestamp = date('Y-m-d H:i:s');
+        $timestamp = TimezoneHelper::getCurrentUserTime('Y-m-d H:i:s');
         $userInfo = $userId ? "User:$userId" : "Guest";
         $catInfo = $category ? "[$category]" : "";
         $logEntry = "[{$timestamp}] [{$level}] {$catInfo} {$userInfo} - {$message}" . PHP_EOL;
@@ -294,7 +298,7 @@ class Logger
         $logDirectory = null;
 
         // Schreibe einen Test-Log
-        $testMessage = "Test log entry at " . date('Y-m-d H:i:s');
+        $testMessage = "Test log entry at " . TimezoneHelper::getCurrentUserTime('Y-m-d H:i:s');
         $this->logToFile('TEST', $testMessage, null, 'TEST');
 
         // Prüfe ob die Log-Datei existiert

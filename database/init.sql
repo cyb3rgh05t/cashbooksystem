@@ -24,15 +24,6 @@ CREATE TABLE IF NOT EXISTS system_logs (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
--- Benutzer-Tabelle (Mit Startkapital erweitert)
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    starting_balance REAL DEFAULT 0.00,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
 
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +35,9 @@ CREATE TABLE IF NOT EXISTS users (
     is_active INTEGER DEFAULT 1,
     last_login DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    timezone TEXT DEFAULT 'Europe/Berlin',
+    timezone_manual INTEGER DEFAULT 0
 );
 
 -- Kategorien-Tabelle  

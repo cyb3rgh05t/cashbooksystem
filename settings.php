@@ -2,6 +2,32 @@
 require_once 'includes/auth.php';
 require_once 'config/database.php';
 require_once 'includes/init_logger.php';
+require_once 'includes/timezone.php';
+
+// Zeitzone Update verarbeiten
+if (isset($_POST['update_timezone'])) {
+    $new_timezone = $_POST['timezone'] ?? '';
+
+    // Setze als MANUELLE Einstellung (true Flag)
+    if (TimezoneHelper::setTimezone($new_timezone, true)) {
+        $success_messages[] = 'Zeitzone erfolgreich aktualisiert und als persönliche Einstellung gespeichert!';
+    } else {
+        $errors[] = 'Ungültige Zeitzone ausgewählt.';
+    }
+}
+
+// Zeitzone auf Automatik zurücksetzen
+if (isset($_POST['reset_timezone'])) {
+    if (TimezoneHelper::resetToAutomatic($_SESSION['user_id'])) {
+        unset($_SESSION['timezone_manually_set']);
+        $success_messages[] = 'Zeitzone wurde auf automatische Erkennung zurückgesetzt!';
+    }
+}
+
+// Aktuelle Zeitzone holen
+$current_timezone = TimezoneHelper::getCurrentTimezone();
+$timezone_list = TimezoneHelper::getTimezoneList();
+$is_manually_set = isset($_SESSION['timezone_manually_set']) && $_SESSION['timezone_manually_set'];
 
 // Require login
 $auth->requireLogin();
@@ -552,7 +578,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                                 <?php endif; ?>
                                             </td>
                                             <td style="padding: 12px; color: var(--clr-surface-a50); font-size: 13px;">
-                                                <?= $user['last_login'] ? date('d.m.Y H:i', strtotime($user['last_login'])) : 'Noch nie' ?>
+                                                <?= $user['last_login'] ? TimezoneHelper::convertToUserTimezone($user['last_login'], 'd.m.Y H:i') : 'Noch nie' ?>
+
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -561,6 +588,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </div>
                 <?php endif; ?>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3 style="color: var(--clr-primary-a20);">
+                        <i class="fa-solid fa-globe"></i> Zeitzone-Einstellungen
+                    </h3>
+                </div>
+
+                <form method="POST" style="padding: 20px;">
+                    <!-- Status-Anzeige -->
+                    <?php if ($is_manually_set): ?>
+                        <div class="alert alert-info" style="margin-bottom: 20px;">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <strong>Manuell eingestellt:</strong> Deine Zeitzone wird nicht automatisch geändert.
+                        </div>
+                    <?php else: ?>
+                        <div class="alert alert-success" style="margin-bottom: 20px;">
+                            <i class="fa-solid fa-check-circle"></i>
+                            <strong>Automatische Erkennung aktiv:</strong> Die Zeitzone wird bei Login erkannt.
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="form-group">
+                        <label class="form-label" for="timezone">Zeitzone</label>
+                        <select name="timezone" id="timezone" class="form-input">
+                            <?php foreach ($timezone_list as $region => $zones): ?>
+                                <optgroup label="<?= htmlspecialchars($region) ?>">
+                                    <?php foreach ($zones as $tz => $city): ?>
+                                        <option value="<?= htmlspecialchars($tz) ?>"
+                                            <?= $tz === $current_timezone ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($city) ?>
+                                            <?php
+                                            // Zeige aktuelle Zeit in dieser Zeitzone
+                                            $testTime = new DateTime('now', new DateTimeZone($tz));
+                                            echo '(' . $testTime->format('H:i') . ')';
+                                            ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="form-hint">
+                            Aktuelle Zeit in deiner Zeitzone:
+                            <strong><?= TimezoneHelper::getCurrentUserTime('d.m.Y H:i:s') ?></strong>
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Browser-Zeitzone</label>
+                        <div class="info-box" style="background: var(--clr-surface-tonal-a10); padding: 15px; border-radius: 8px;">
+                            <p style="margin: 0;">
+                                <strong>Erkannte Browser-Zeitzone:</strong>
+                                <span id="detected-timezone">Wird ermittelt...</span>
+                            </p>
+                            <?php if ($is_manually_set): ?>
+                                <p style="margin: 10px 0 0 0; color: var(--clr-surface-a50);">
+                                    <i class="fa-solid fa-lock"></i>
+                                    Die automatische Erkennung ist deaktiviert, da du eine manuelle Einstellung vorgenommen hast.
+                                </p>
+                            <?php else: ?>
+                                <p style="margin: 10px 0 0 0; color: var(--clr-surface-a50);">
+                                    <i class="fa-solid fa-sync-alt"></i>
+                                    Bei jedem Login wird deine Browser-Zeitzone erkannt und automatisch verwendet.
+                                </p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="form-actions" style="display: flex; gap: 10px;">
+                        <button type="submit" name="update_timezone" class="btn btn-primary">
+                            <i class="fa-solid fa-save"></i> Zeitzone speichern
+                        </button>
+
+                        <?php if ($is_manually_set): ?>
+                            <button type="submit" name="reset_timezone" class="btn btn-secondary"
+                                onclick="return confirm('Möchtest du wirklich zur automatischen Erkennung zurückkehren?');">
+                                <i class="fa-solid fa-undo"></i> Automatik aktivieren
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                </form>
             </div>
         </main>
     </div>
@@ -640,6 +748,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Zeige erkannte Browser-Zeitzone
+            const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const detectedElement = document.getElementById('detected-timezone');
+            detectedElement.textContent = browserTimezone;
+
+            // Prüfe ob Browser-Zeitzone mit aktueller übereinstimmt
+            const currentTimezone = '<?= $current_timezone ?>';
+            const isManuallySet = <?= $is_manually_set ? 'true' : 'false' ?>;
+
+            if (browserTimezone === currentTimezone) {
+                detectedElement.innerHTML = browserTimezone + ' <span style="color: #22c55e;">(✓ Stimmt überein)</span>';
+            } else if (isManuallySet) {
+                detectedElement.innerHTML = browserTimezone + ' <span style="color: #f97316;">(≠ Weicht von deiner Einstellung ab)</span>';
+            } else {
+                detectedElement.innerHTML = browserTimezone + ' <span style="color: #3b82f6;">(Wird beim nächsten Login verwendet)</span>';
+            }
+        });
+
+        // Wenn Zeitzone manuell geändert wird, sende mit force-Flag
+        document.querySelector('form').addEventListener('submit', function(e) {
+            if (e.submitter && e.submitter.name === 'update_timezone') {
+                // Dies wird als manuelle Einstellung gespeichert
+                console.log('Manuelle Zeitzone-Einstellung wird gespeichert...');
+            }
+        });
+    </script>
 </body>
 
 </html>
