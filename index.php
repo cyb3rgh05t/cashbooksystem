@@ -1,5 +1,6 @@
 <?php
 require_once 'includes/auth.php';
+require_once 'includes/init_logger.php';
 
 $auth = new Auth();
 

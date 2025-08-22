@@ -7,6 +7,7 @@
 
 require_once 'includes/auth.php';
 require_once 'config/database.php';
+require_once 'includes/init_logger.php';
 
 // Require login mit Auth-Klasse
 $auth->requireLogin();

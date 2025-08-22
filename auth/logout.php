@@ -6,6 +6,7 @@
  */
 
 require_once '../includes/auth.php';
+require_once '../includes/init_logger.php';
 
 // Perform logout
 $auth->logout();
