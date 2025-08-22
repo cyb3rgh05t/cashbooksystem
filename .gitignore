@@ -1,3 +1,6 @@
 /.vscode
-database/finance_tracker.db
-/cache
+*.db
+test-*.php
+*.log
+*.json
+*.txt

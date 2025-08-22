@@ -114,12 +114,20 @@ class Auth
         $_SESSION['login_time'] = time();
         $_SESSION['last_activity'] = time();
 
+        // UPDATE: last_login in users Tabelle aktualisieren
+        $updateStmt = $this->pdo->prepare("
+        UPDATE users 
+        SET last_login = CURRENT_TIMESTAMP 
+        WHERE id = :user_id
+    ");
+        $updateStmt->execute([':user_id' => $user['id']]);
+
         // Create session entry in database
         $sessionId = session_id();
         $stmt = $this->pdo->prepare("
-            INSERT INTO sessions (session_id, user_id, ip_address, user_agent) 
-            VALUES (:session_id, :user_id, :ip, :agent)
-        ");
+        INSERT INTO sessions (session_id, user_id, ip_address, user_agent) 
+        VALUES (:session_id, :user_id, :ip, :agent)
+    ");
         $stmt->execute([
             ':session_id' => $sessionId,
             ':user_id' => $user['id'],
