@@ -186,23 +186,25 @@ class Database
 
     /**
      * Default-Daten einfügen (Admin und Demo User)
+     * NUR wenn noch KEIN Admin existiert
      */
     private function insertDefaultData(): void
     {
         $pdo = $this->getConnection();
 
-        // Prüfe ob Admin User existiert
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE username = 'admin'");
+        // Prüfe ob IRGENDEIN Admin User existiert (nicht nur der Demo-Admin)
+        $stmt = $pdo->prepare("SELECT COUNT(*) as admin_count FROM users WHERE role = 'admin' AND is_active = 1");
         $stmt->execute();
-        $adminExists = $stmt->fetch();
+        $result = $stmt->fetch();
+        $adminExists = ($result && $result['admin_count'] > 0);
 
         if (!$adminExists) {
             try {
                 // Admin User erstellen (Passwort: admin123)
                 $stmt = $pdo->prepare("
-                    INSERT INTO users (username, password, email, full_name, role, is_active, starting_balance) 
-                    VALUES (:username, :password, :email, :full_name, :role, :is_active, :balance)
-                ");
+                INSERT INTO users (username, password, email, full_name, role, is_active, starting_balance) 
+                VALUES (:username, :password, :email, :full_name, :role, :is_active, :balance)
+            ");
 
                 $stmt->execute([
                     ':username' => 'admin',
@@ -236,6 +238,8 @@ class Database
             } catch (PDOException $e) {
                 error_log("Could not create default users: " . $e->getMessage());
             }
+        } else {
+            error_log("Admin user already exists, skipping default user creation");
         }
     }
 
@@ -256,22 +260,22 @@ class Database
 
         $default_categories = [
             // Income categories
-            ['name' => 'Gehalt',      'type' => 'income',  'color' => '#4ade80', 'icon' => '💼'],
-            ['name' => 'Freelance',   'type' => 'income',  'color' => '#22c55e', 'icon' => '💻'],
-            ['name' => 'Bonus',       'type' => 'income',  'color' => '#10b981', 'icon' => '🎉'],
+            ['name' => 'Gehalt',      'type' => 'income',  'color' => '#4ade80', 'icon' => '<i class="fa-solid fa-wallet"></i>'],
+            ['name' => 'Freelance',   'type' => 'income',  'color' => '#22c55e', 'icon' => '<i class="fa-brands fa-codepen"></i>'],
+            ['name' => 'Bonus',       'type' => 'income',  'color' => '#10b981', 'icon' => '<i class="fa-solid fa-skull"></i>'],
 
             // Expense categories
-            ['name' => 'Lebensmittel', 'type' => 'expense', 'color' => '#f97316', 'icon' => '🛒'],
-            ['name' => 'Miete',       'type' => 'expense', 'color' => '#9333ea', 'icon' => '🏠'],
-            ['name' => 'Transport',   'type' => 'expense', 'color' => '#78716c', 'icon' => '🚗'],
-            ['name' => 'Freizeit',    'type' => 'expense', 'color' => '#ec4899', 'icon' => '🎬'],
-            ['name' => 'Gesundheit',  'type' => 'expense', 'color' => '#ef4444', 'icon' => '⚕️'],
+            ['name' => 'Lebensmittel', 'type' => 'expense', 'color' => '#f97316', 'icon' => '<i class="fa-solid fa-bowl-food"></i>'],
+            ['name' => 'Miete',       'type' => 'expense', 'color' => '#9333ea', 'icon' => '<i class="fa-solid fa-money-bill-transfer"></i>'],
+            ['name' => 'Transport',   'type' => 'expense', 'color' => '#78716c', 'icon' => '<i class="fa-solid fa-car"></i>'],
+            ['name' => 'Freizeit',    'type' => 'expense', 'color' => '#ec4899', 'icon' => '<i class="fa-brands fa-free-code-camp"></i>'],
+            ['name' => 'Gesundheit',  'type' => 'expense', 'color' => '#ef4444', 'icon' => '<i class="fa-solid fa-notes-medical"></i>'],
 
             // Debt categories
             ['name' => 'Firma → Privat', 'type' => 'debt_out', 'color' => '#fbbf24', 'icon' => '<i class="fa-solid fa-money-bill-wave"></i>'],
             ['name' => 'Privat → Firma', 'type' => 'debt_in',  'color' => '#22c55e', 'icon' => '<i class="fa-solid fa-sack-dollar"></i>'],
             ['name' => 'Darlehen vergeben', 'type' => 'debt_out', 'color' => '#f97316', 'icon' => '<i class="fa-solid fa-handshake"></i>'],
-            ['name' => 'Darlehen erhalten', 'type' => 'debt_in',  'color' => '#3b82f6', 'icon' => '<i class="fa-solid fa-handshake"></i>'],
+            ['name' => 'Darlehen erhalten', 'type' => 'debt_in',  'color' => '#3b82f6', 'icon' => '<i class="fa-solid fa-wallet"></i>'],
         ];
 
         $stmt = $pdo->prepare('
@@ -366,6 +370,145 @@ class Database
         }
     }
 
+
+    /**
+     * Delete a user and all related data
+     * 
+     * @param int $user_id User ID to delete
+     * @param int $admin_id ID of admin performing the deletion (for security check)
+     * @return array Result array with success status and message
+     */
+    public function deleteUser(int $user_id, int $admin_id): array
+    {
+        $pdo = $this->getConnection();
+
+        try {
+            // Sicherheitschecks
+
+            // 1. Prüfe ob der löschende User ein Admin ist
+            $stmt = $pdo->prepare("SELECT role FROM users WHERE id = ? AND is_active = 1");
+            $stmt->execute([$admin_id]);
+            $adminUser = $stmt->fetch();
+
+            if (!$adminUser || $adminUser['role'] !== 'admin') {
+                return [
+                    'success' => false,
+                    'message' => 'Nur Administratoren können Benutzer löschen.'
+                ];
+            }
+
+            // 2. Verhindere Selbstlöschung
+            if ($user_id === $admin_id) {
+                return [
+                    'success' => false,
+                    'message' => 'Du kannst dich nicht selbst löschen.'
+                ];
+            }
+
+            // 3. Hole User-Daten
+            $stmt = $pdo->prepare("SELECT username, role FROM users WHERE id = ?");
+            $stmt->execute([$user_id]);
+            $userToDelete = $stmt->fetch();
+
+            if (!$userToDelete) {
+                return [
+                    'success' => false,
+                    'message' => 'Benutzer nicht gefunden.'
+                ];
+            }
+
+            // 4. Prüfe ob es der letzte Admin ist
+            if ($userToDelete['role'] === 'admin') {
+                $stmt = $pdo->prepare("SELECT COUNT(*) as admin_count FROM users WHERE role = 'admin' AND is_active = 1");
+                $stmt->execute();
+                $adminCount = $stmt->fetch()['admin_count'];
+
+                if ($adminCount <= 1) {
+                    return [
+                        'success' => false,
+                        'message' => 'Der letzte Administrator kann nicht gelöscht werden.'
+                    ];
+                }
+            }
+
+            // 5. Starte Transaktion für sicheres Löschen
+            $pdo->beginTransaction();
+
+            // Lösche alle abhängigen Daten (CASCADE sollte das meiste erledigen, aber zur Sicherheit)
+
+            // Lösche Sessions des Users
+            $stmt = $pdo->prepare("DELETE FROM sessions WHERE user_id = ?");
+            $stmt->execute([$user_id]);
+
+            // Lösche den User (CASCADE löscht automatisch: transactions, categories, investments, recurring_transactions)
+            $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+            $stmt->execute([$user_id]);
+
+            $pdo->commit();
+
+            // Log die Aktion
+            error_log("User '{$userToDelete['username']}' (ID: $user_id) wurde von Admin (ID: $admin_id) gelöscht.");
+
+            return [
+                'success' => true,
+                'message' => "Benutzer '{$userToDelete['username']}' wurde erfolgreich gelöscht."
+            ];
+        } catch (PDOException $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log("Fehler beim Löschen des Users: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Fehler beim Löschen des Benutzers: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Get all users with their details
+     * 
+     * @return array Array of all users
+     */
+    public function getAllUsers(): array
+    {
+        $pdo = $this->getConnection();
+
+        $stmt = $pdo->prepare("
+        SELECT 
+            id, 
+            username, 
+            email, 
+            full_name, 
+            role, 
+            is_active, 
+            last_login, 
+            created_at,
+            starting_balance
+        FROM users 
+        ORDER BY created_at DESC
+    ");
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Count users by role
+     * 
+     * @param string $role Role to count ('admin', 'user', 'viewer')
+     * @return int Number of users with that role
+     */
+    public function countUsersByRole(string $role): int
+    {
+        $pdo = $this->getConnection();
+
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = ? AND is_active = 1");
+        $stmt->execute([$role]);
+
+        return (int)$stmt->fetchColumn();
+    }
+
     /**
      * Ensures a basic category set exists for a given user.
      * Call this after creating a new user account.
@@ -387,22 +530,22 @@ class Database
 
         $default_categories = [
             // Income categories
-            ['name' => 'Gehalt',      'type' => 'income',  'color' => '#4ade80', 'icon' => '💼'],
-            ['name' => 'Freelance',   'type' => 'income',  'color' => '#22c55e', 'icon' => '💻'],
-            ['name' => 'Bonus',       'type' => 'income',  'color' => '#10b981', 'icon' => '🎉'],
+            ['name' => 'Gehalt',      'type' => 'income',  'color' => '#4ade80', 'icon' => '<i class="fa-solid fa-wallet"></i>'],
+            ['name' => 'Freelance',   'type' => 'income',  'color' => '#22c55e', 'icon' => '<i class="fa-brands fa-codepen"></i>'],
+            ['name' => 'Bonus',       'type' => 'income',  'color' => '#10b981', 'icon' => '<i class="fa-solid fa-skull"></i>'],
 
             // Expense categories
-            ['name' => 'Lebensmittel', 'type' => 'expense', 'color' => '#f97316', 'icon' => '🛒'],
-            ['name' => 'Miete',       'type' => 'expense', 'color' => '#9333ea', 'icon' => '🏠'],
-            ['name' => 'Transport',   'type' => 'expense', 'color' => '#78716c', 'icon' => '🚗'],
-            ['name' => 'Freizeit',    'type' => 'expense', 'color' => '#ec4899', 'icon' => '🎬'],
-            ['name' => 'Gesundheit',  'type' => 'expense', 'color' => '#ef4444', 'icon' => '⚕️'],
+            ['name' => 'Lebensmittel', 'type' => 'expense', 'color' => '#f97316', 'icon' => '<i class="fa-solid fa-bowl-food"></i>'],
+            ['name' => 'Miete',       'type' => 'expense', 'color' => '#9333ea', 'icon' => '<i class="fa-solid fa-money-bill-transfer"></i>'],
+            ['name' => 'Transport',   'type' => 'expense', 'color' => '#78716c', 'icon' => '<i class="fa-solid fa-car"></i>'],
+            ['name' => 'Freizeit',    'type' => 'expense', 'color' => '#ec4899', 'icon' => '<i class="fa-brands fa-free-code-camp"></i>'],
+            ['name' => 'Gesundheit',  'type' => 'expense', 'color' => '#ef4444', 'icon' => '<i class="fa-solid fa-notes-medical"></i>'],
 
             // Debt categories
             ['name' => 'Firma → Privat', 'type' => 'debt_out', 'color' => '#fbbf24', 'icon' => '<i class="fa-solid fa-money-bill-wave"></i>'],
             ['name' => 'Privat → Firma', 'type' => 'debt_in',  'color' => '#22c55e', 'icon' => '<i class="fa-solid fa-sack-dollar"></i>'],
-            ['name' => 'Darlehen vergeben', 'type' => 'debt_out', 'color' => '#f97316', 'icon' => '🤝'],
-            ['name' => 'Darlehen erhalten', 'type' => 'debt_in',  'color' => '#3b82f6', 'icon' => '🏦'],
+            ['name' => 'Darlehen vergeben', 'type' => 'debt_out', 'color' => '#f97316', 'icon' => '<i class="fa-solid fa-handshake"></i>'],
+            ['name' => 'Darlehen erhalten', 'type' => 'debt_in',  'color' => '#3b82f6', 'icon' => '<i class="fa-solid fa-wallet"></i>'],
         ];
 
         $stmt = $pdo->prepare('

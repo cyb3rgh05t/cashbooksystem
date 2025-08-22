@@ -533,9 +533,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         <?php
                         // Alle User laden
-                        $stmt = $pdo->prepare("SELECT id, username, email, full_name, role, is_active, last_login, created_at FROM users ORDER BY created_at DESC");
-                        $stmt->execute();
-                        $all_users = $stmt->fetchAll();
+                        $all_users = $db->getAllUsers();
+                        $admin_count = $db->countUsersByRole('admin');
                         ?>
 
                         <div style="overflow-x: auto;">
@@ -545,46 +544,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <th style="padding: 12px; text-align: left; color: var(--clr-surface-a50);">Benutzername</th>
                                         <th style="padding: 12px; text-align: left; color: var(--clr-surface-a50);">E-Mail</th>
                                         <th style="padding: 12px; text-align: left; color: var(--clr-surface-a50);">Name</th>
-                                        <th style="padding: 12px; text-align: left; color: var(--clr-surface-a50);">Rolle</th>
-                                        <th style="padding: 12px; text-align: left; color: var(--clr-surface-a50);">Status</th>
+                                        <th style="padding: 12px; text-align: center; color: var(--clr-surface-a50);">Rolle</th>
+                                        <th style="padding: 12px; text-align: center; color: var(--clr-surface-a50);">Status</th>
+                                        <th style="padding: 12px; text-align: center; color: var(--clr-surface-a50);">Startkapital</th>
                                         <th style="padding: 12px; text-align: left; color: var(--clr-surface-a50);">Letzter Login</th>
+                                        <th style="padding: 12px; text-align: center; color: var(--clr-surface-a50);">Aktionen</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($all_users as $user): ?>
-                                        <tr style="border-bottom: 1px solid var(--clr-surface-a20);">
-                                            <td style="padding: 12px; color: var(--clr-light-a0);">
+                                        <?php
+                                        $isCurrentUser = ($user['id'] == $currentUser['id']);
+                                        $isLastAdmin = ($user['role'] === 'admin' && $admin_count <= 1);
+                                        $canDelete = !$isCurrentUser && !$isLastAdmin;
+                                        ?>
+                                        <tr style="border-bottom: 1px solid var(--clr-surface-a10); <?= $isCurrentUser ? 'background: rgba(34, 197, 94, 0.1);' : '' ?>">
+                                            <td style="padding: 12px;">
                                                 <?= htmlspecialchars($user['username']) ?>
-                                                <?php if ($user['id'] == $user_id): ?>
-                                                    <span style="color: #4ade80; font-size: 12px;">(Du)</span>
+                                                <?php if ($isCurrentUser): ?>
+                                                    <span style="color: #22c55e; font-size: 0.8em;"> (Du)</span>
                                                 <?php endif; ?>
                                             </td>
-                                            <td style="padding: 12px; color: var(--clr-surface-a50);"><?= htmlspecialchars($user['email']) ?></td>
-                                            <td style="padding: 12px; color: var(--clr-surface-a50);"><?= htmlspecialchars($user['full_name'] ?? '-') ?></td>
-                                            <td style="padding: 12px;">
+                                            <td style="padding: 12px; color: var(--clr-surface-a70);">
+                                                <?= htmlspecialchars($user['email']) ?>
+                                            </td>
+                                            <td style="padding: 12px; color: var(--clr-surface-a70);">
+                                                <?= htmlspecialchars($user['full_name'] ?: '-') ?>
+                                            </td>
+                                            <td style="padding: 12px; text-align: center;">
                                                 <?php if ($user['role'] === 'admin'): ?>
-                                                    <span style="color: #fbbf24;"><i class="fa-solid fa-crown"></i> Admin</span>
+                                                    <span style="background: #fbbf24; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">
+                                                        <i class="fa-solid fa-crown"></i> Admin
+                                                    </span>
                                                 <?php elseif ($user['role'] === 'viewer'): ?>
-                                                    <span style="color: #60a5fa;"><i class="fa-solid fa-eye"></i> Betrachter</span>
+                                                    <span style="background: #60a5fa; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">
+                                                        <i class="fa-solid fa-eye"></i> Viewer
+                                                    </span>
                                                 <?php else: ?>
-                                                    <span style="color: #a78bfa;"><i class="fa-solid fa-user"></i> Benutzer</span>
+                                                    <span style="background: var(--clr-surface-a20); color: var(--clr-surface-a80); padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">
+                                                        <i class="fa-solid fa-user"></i> User
+                                                    </span>
                                                 <?php endif; ?>
                                             </td>
-                                            <td style="padding: 12px;">
+                                            <td style="padding: 12px; text-align: center;">
                                                 <?php if ($user['is_active']): ?>
-                                                    <span style="color: #4ade80;">Aktiv</span>
+                                                    <span style="color: #22c55e;">
+                                                        <i class="fa-solid fa-circle-check"></i> Aktiv
+                                                    </span>
                                                 <?php else: ?>
-                                                    <span style="color: #f87171;">Inaktiv</span>
+                                                    <span style="color: #ef4444;">
+                                                        <i class="fa-solid fa-circle-xmark"></i> Inaktiv
+                                                    </span>
                                                 <?php endif; ?>
                                             </td>
-                                            <td style="padding: 12px; color: var(--clr-surface-a50); font-size: 13px;">
-                                                <?= $user['last_login'] ? TimezoneHelper::convertToUserTimezone($user['last_login'], 'd.m.Y H:i') : 'Noch nie' ?>
-
+                                            <td style="padding: 12px; text-align: center; color: var(--clr-surface-a70);">
+                                                €<?= number_format($user['starting_balance'] ?? 0, 2, ',', '.') ?>
+                                            </td>
+                                            <td style="padding: 12px; color: var(--clr-surface-a70);">
+                                                <?php if ($user['last_login']): ?>
+                                                    <?= date('d.m.Y H:i', strtotime($user['last_login'])) ?>
+                                                <?php else: ?>
+                                                    <span style="color: var(--clr-surface-a50);">Noch nie</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td style="padding: 12px; text-align: center;">
+                                                <?php if ($canDelete): ?>
+                                                    <button onclick="confirmDeleteUser(<?= $user['id'] ?>, '<?= htmlspecialchars($user['username'], ENT_QUOTES) ?>')"
+                                                        class="btn-delete-user"
+                                                        style="background: #ef4444; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
+                                                <?php elseif ($isCurrentUser): ?>
+                                                    <span style="color: var(--clr-surface-a50); font-size: 0.85em;">-</span>
+                                                <?php elseif ($isLastAdmin): ?>
+                                                    <span style="color: var(--clr-surface-a50); font-size: 0.75em;" title="Der letzte Admin kann nicht gelöscht werden">
+                                                        <i class="fa-solid fa-lock"></i> Geschützt
+                                                    </span>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
+                        </div>
+
+                        <div style="margin-top: 20px; padding: 15px; background: var(--clr-surface-a05); border-radius: 8px;">
+                            <p style="color: var(--clr-surface-a60); font-size: 0.9em; margin: 0;">
+                                <i class="fa-solid fa-info-circle"></i>
+                                <strong>Hinweise:</strong><br>
+                                • Du kannst dich nicht selbst löschen<br>
+                                • Der letzte Administrator kann nicht gelöscht werden<br>
+                                • Beim Löschen eines Benutzers werden alle seine Daten (Transaktionen, Kategorien, etc.) unwiderruflich gelöscht
+                            </p>
                         </div>
                     </div>
                 <?php endif; ?>
@@ -747,6 +798,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Responsive Design für kleine Bildschirme */
+        @media (max-width: 768px) {
+            .settings-card table {
+                font-size: 0.85em;
+            }
+
+            .settings-card th,
+            .settings-card td {
+                padding: 8px !important;
+            }
+        }
     </style>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -775,6 +838,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 console.log('Manuelle Zeitzone-Einstellung wird gespeichert...');
             }
         });
+
+        function confirmDeleteUser(userId, username) {
+            if (confirm(`Bist du sicher, dass du den Benutzer "${username}" löschen möchtest?\n\nDiese Aktion kann nicht rückgängig gemacht werden und löscht ALLE Daten dieses Benutzers!`)) {
+                window.location.href = `delete-user.php?id=${userId}`;
+            }
+        }
     </script>
 </body>
 
