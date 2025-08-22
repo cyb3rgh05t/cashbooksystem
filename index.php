@@ -1,8 +1,14 @@
 <?php
-session_start();
+
+/**
+ * Login Page - Cashbook System
+ * Updated mit Auth-Klasse
+ */
+
+require_once 'includes/auth.php';
 
 // Wenn bereits eingeloggt, weiterleiten zum Dashboard
-if (isset($_SESSION['user_id'])) {
+if ($auth->isLoggedIn()) {
     header('Location: dashboard.php');
     exit;
 }
@@ -17,6 +23,12 @@ $success_message = '';
 if (isset($_SESSION['success'])) {
     $success_message = $_SESSION['success'];
     unset($_SESSION['success']);
+}
+
+// Check for logout message
+if (isset($_SESSION['logout_message'])) {
+    $success_message = $_SESSION['logout_message'];
+    unset($_SESSION['logout_message']);
 }
 ?>
 <!DOCTYPE html>
@@ -161,13 +173,13 @@ if (isset($_SESSION['success'])) {
             <div id="login-form" class="form-container active">
                 <form action="auth/login.php" method="POST">
                     <div class="form-group">
-                        <label class="form-label" for="login-username">Benutzername</label>
-                        <input type="text" id="login-username" name="username" class="form-input" required>
+                        <label class="form-label" for="username">Benutzername</label>
+                        <input type="text" id="username" name="username" class="form-input" required autofocus>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label" for="login-password">Passwort</label>
-                        <input type="password" id="login-password" name="password" class="form-input" required>
+                        <label class="form-label" for="password">Passwort</label>
+                        <input type="password" id="password" name="password" class="form-input" required>
                     </div>
 
                     <button type="submit" class="btn btn-full">Anmelden</button>
@@ -179,7 +191,7 @@ if (isset($_SESSION['success'])) {
                 <form action="auth/register.php" method="POST">
                     <div class="form-group">
                         <label class="form-label" for="reg-username">Benutzername</label>
-                        <input type="text" id="reg-username" name="username" class="form-input" required minlength="3">
+                        <input type="text" id="reg-username" name="username" class="form-input" required>
                     </div>
 
                     <div class="form-group">
@@ -189,7 +201,7 @@ if (isset($_SESSION['success'])) {
 
                     <div class="form-group">
                         <label class="form-label" for="reg-password">Passwort</label>
-                        <input type="password" id="reg-password" name="password" class="form-input" required minlength="6">
+                        <input type="password" id="reg-password" name="password" class="form-input" required>
                     </div>
 
                     <div class="form-group">
@@ -197,7 +209,12 @@ if (isset($_SESSION['success'])) {
                         <input type="password" id="reg-password-confirm" name="password_confirm" class="form-input" required>
                     </div>
 
-                    <button type="submit" class="btn btn-full">Registrieren</button>
+                    <div class="form-group">
+                        <label class="form-label" for="starting-balance">Startguthaben (optional)</label>
+                        <input type="number" id="starting-balance" name="starting_balance" class="form-input" step="0.01" value="0">
+                    </div>
+
+                    <button type="submit" class="btn">Registrieren</button>
                 </form>
             </div>
 

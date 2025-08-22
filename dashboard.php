@@ -1,13 +1,67 @@
 <?php
-session_start();
 
-// Auth check
-if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
-    exit;
-}
+/**
+ * Dashboard - Cashbook System
+ * Updated mit Auth-Klasse
+ */
 
+require_once 'includes/auth.php';
 require_once 'config/database.php';
+
+// Require login mit Auth-Klasse
+$auth->requireLogin();
+
+// Get current user
+$currentUser = $auth->getCurrentUser();
+$user_id = $currentUser['id'];
+$username = $currentUser['username'];
+
+// Database connection
+$db = new Database();
+$pdo = $db->getConnection();
+
+// Get user balance and statistics
+$stmt = $pdo->prepare("
+    SELECT 
+        u.starting_balance,
+        COALESCE(SUM(CASE WHEN c.type = 'income' THEN t.amount ELSE 0 END), 0) as total_income,
+        COALESCE(SUM(CASE WHEN c.type = 'expense' THEN t.amount ELSE 0 END), 0) as total_expense,
+        COALESCE(SUM(CASE WHEN c.type = 'debt_in' THEN t.amount ELSE 0 END), 0) as total_debt_in,
+        COALESCE(SUM(CASE WHEN c.type = 'debt_out' THEN t.amount ELSE 0 END), 0) as total_debt_out
+    FROM users u
+    LEFT JOIN transactions t ON u.id = t.user_id
+    LEFT JOIN categories c ON t.category_id = c.id
+    WHERE u.id = ?
+    GROUP BY u.id
+");
+$stmt->execute([$user_id]);
+$stats = $stmt->fetch();
+
+// Calculate current balance
+$current_balance = $stats['starting_balance'] + $stats['total_income'] - $stats['total_expense'];
+
+// Get recent transactions
+$stmt = $pdo->prepare("
+    SELECT t.*, c.name as category_name, c.icon, c.color, c.type
+    FROM transactions t
+    JOIN categories c ON t.category_id = c.id
+    WHERE t.user_id = ?
+    ORDER BY t.date DESC, t.created_at DESC
+    LIMIT 10
+");
+$stmt->execute([$user_id]);
+$recent_transactions = $stmt->fetchAll();
+
+// Success/Error Messages
+$message = '';
+if (isset($_SESSION['success'])) {
+    $message = '<div class="alert alert-success">' . htmlspecialchars($_SESSION['success']) . '</div>';
+    unset($_SESSION['success']);
+}
+if (isset($_SESSION['error'])) {
+    $message = '<div class="alert alert-error">' . htmlspecialchars($_SESSION['error']) . '</div>';
+    unset($_SESSION['error']);
+}
 
 // Null-safe number formatting helper function
 function formatNumber($number, $decimals = 2, $default = '0.00')
@@ -15,9 +69,6 @@ function formatNumber($number, $decimals = 2, $default = '0.00')
     return $number !== null ? number_format($number, $decimals, ',', '.') : $default;
 }
 
-$db = new Database();
-$pdo = $db->getConnection();
-$user_id = $_SESSION['user_id'];
 
 // Automatisch fällige wiederkehrende Transaktionen verarbeiten beim Login
 $processed_count = $db->processDueRecurringTransactions($user_id);
@@ -420,7 +471,7 @@ $due_recurring = $db->getDueRecurringTransactions($user_id, 3);
                 <a href="dashboard.php" class="sidebar-logo">
                     <img src="assets/images/logo.png" alt="Meine Firma Finance Logo" class="sidebar-logo-image">
                 </a>
-                <p class="sidebar-welcome">Willkommen, <?= htmlspecialchars($_SESSION['full_name'] ?? $_SESSION['username']) ?></p>
+                <p class="sidebar-welcome">Willkommen, <?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username']) ?></p>
             </div>
 
             <nav>

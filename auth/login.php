@@ -1,6 +1,11 @@
 <?php
-session_start();
-require_once '../config/database.php';
+
+/**
+ * Login Handler mit neuer Auth-Klasse
+ * Updated für Cashbook System
+ */
+
+require_once '../includes/auth.php';
 
 // Prüfe ob das Formular abgesendet wurde
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -18,29 +23,18 @@ if (empty($username) || empty($password)) {
     exit;
 }
 
-try {
-    $db = new Database();
+// Login mit Auth-Klasse
+$result = $auth->login($username, $password);
 
-    // Authenticate user with the new method
-    $user = $db->authenticateUser($username, $password);
+if ($result['success']) {
+    // Check for redirect URL
+    $redirect = $_SESSION['redirect_after_login'] ?? '../dashboard.php';
+    unset($_SESSION['redirect_after_login']);
 
-    if (!$user) {
-        $_SESSION['error'] = 'Benutzername oder Passwort ungültig.';
-        header('Location: ../index.php');
-        exit;
-    }
-
-    // Login erfolgreich - Session setzen
-    $_SESSION['user_id'] = $user['id'];
-    $_SESSION['username'] = $user['username'];
-    $_SESSION['email'] = $user['email'];
-
-    // Weiterleitung zum Dashboard
-    header('Location: ../dashboard.php');
+    header('Location: ' . $redirect);
     exit;
-} catch (Exception $e) {
-    error_log("Login Error: " . $e->getMessage());
-    $_SESSION['error'] = 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.';
+} else {
+    $_SESSION['error'] = $result['message'];
     header('Location: ../index.php');
     exit;
 }

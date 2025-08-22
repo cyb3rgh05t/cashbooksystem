@@ -1,14 +1,17 @@
 <?php
-// modules/investments/crypto_search.php - AJAX-Endpoint für Crypto-Suche
+require_once '../../includes/auth.php';
+require_once '../../config/database.php';
 
-session_start();
+// Require login mit Auth-Klasse
+$auth->requireLogin();
 
-// Auth check
-if (!isset($_SESSION['user_id'])) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Unauthorized']);
-    exit;
-}
+// Get current user
+$currentUser = $auth->getCurrentUser();
+$user_id = $currentUser['id'];
+
+// Database connection
+$db = new Database();
+$pdo = $db->getConnection();
 
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

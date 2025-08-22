@@ -1,18 +1,20 @@
 <?php
-session_start();
-
-// Auth check
-if (!isset($_SESSION['user_id'])) {
-    header('Location: ../../index.php');
-    exit;
-}
-
+require_once '../../includes/auth.php';
 require_once '../../config/database.php';
 require_once '../../config/crypto_api.php';
 
+// Require login mit Auth-Klasse
+$auth->requireLogin();
+
+// Get current user
+$currentUser = $auth->getCurrentUser();
+$user_id = $currentUser['id'];
+
+// Database connection
 $db = new Database();
+$pdo = $db->getConnection();
 $crypto_api = new CryptoAPI();
-$user_id = $_SESSION['user_id'];
+
 
 // Get investment ID
 $investment_id = $_GET['id'] ?? null;
@@ -141,7 +143,7 @@ $form_data = [
                 <a class="sidebar-logo">
                     <img src="../../assets/images/logo.png" alt="Meine Firma Finance Logo" class="sidebar-logo-image">
                 </a>
-                <p class="sidebar-welcome">Willkommen, <?= htmlspecialchars($_SESSION['username']) ?></p>
+                <p class="sidebar-welcome">Willkommen, <?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username']) ?></p>
             </div>
 
             <nav>

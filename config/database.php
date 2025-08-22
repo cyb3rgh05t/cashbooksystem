@@ -61,74 +61,112 @@ class Database
 
         // Create tables if they don't exist yet
         $schemaSql = <<<SQL
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            starting_balance REAL DEFAULT 0.00,
-            created_at TEXT NOT NULL DEFAULT (datetime('now'))
-        );
 
-        CREATE TABLE IF NOT EXISTS categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            type TEXT NOT NULL CHECK (type IN ('income','expense','debt_in','debt_out')),
-            color TEXT,
-            icon TEXT,
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
+            -- Users Tabelle (mit erweiterten Feldern für Auth-System)
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                full_name TEXT,
+                role TEXT DEFAULT 'user' CHECK(role IN ('admin', 'user', 'viewer')),
+                is_active INTEGER DEFAULT 1,
+                last_login DATETIME,
+                starting_balance REAL DEFAULT 0.00,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
 
-        CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            category_id INTEGER,
-            amount REAL NOT NULL,
-            note TEXT,
-            date TEXT NOT NULL,
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            recurring_transaction_id INTEGER DEFAULT NULL,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
-            FOREIGN KEY (recurring_transaction_id) REFERENCES recurring_transactions(id) ON DELETE SET NULL
-        );
+            -- Sessions Tabelle für Login-Tracking
+            CREATE TABLE IF NOT EXISTS sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT UNIQUE NOT NULL,
+                user_id INTEGER NOT NULL,
+                ip_address TEXT,
+                user_agent TEXT,
+                last_activity DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
 
-        CREATE TABLE IF NOT EXISTS recurring_transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            category_id INTEGER NOT NULL,
-            amount REAL NOT NULL,
-            note TEXT,
-            frequency TEXT NOT NULL CHECK (frequency IN ('daily','weekly','monthly','yearly')),
-            start_date TEXT NOT NULL,
-            end_date TEXT,
-            next_due_date TEXT NOT NULL,
-            is_active INTEGER DEFAULT 1,
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
-        );
+            -- System Logs Tabelle für Audit-Trail
+            CREATE TABLE IF NOT EXISTS system_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                level TEXT NOT NULL CHECK(level IN ('INFO', 'SUCCESS', 'WARNING', 'ERROR', 'CRITICAL')),
+                category TEXT,
+                message TEXT NOT NULL,
+                user_id INTEGER,
+                ip_address TEXT,
+                user_agent TEXT,
+                additional_data TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
 
-        CREATE TABLE IF NOT EXISTS investments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            symbol TEXT NOT NULL,
-            name TEXT NOT NULL,
-            amount REAL NOT NULL,
-            purchase_price REAL NOT NULL,
-            purchase_date TEXT NOT NULL,
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                type TEXT NOT NULL CHECK (type IN ('income','expense','debt_in','debt_out')),
+                color TEXT,
+                icon TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
 
-        -- Index für bessere Performance
-        CREATE INDEX IF NOT EXISTS idx_investments_user_id ON investments(user_id);
-        CREATE INDEX IF NOT EXISTS idx_investments_symbol ON investments(symbol);
-        CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
-        CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
-        CREATE INDEX IF NOT EXISTS idx_categories_type ON categories(type);
+            CREATE TABLE IF NOT EXISTS transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                category_id INTEGER,
+                amount REAL NOT NULL,
+                note TEXT,
+                date TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                recurring_transaction_id INTEGER DEFAULT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+                FOREIGN KEY (recurring_transaction_id) REFERENCES recurring_transactions(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS recurring_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                category_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                note TEXT,
+                frequency TEXT NOT NULL CHECK (frequency IN ('daily','weekly','monthly','yearly')),
+                start_date TEXT NOT NULL,
+                end_date TEXT,
+                next_due_date TEXT NOT NULL,
+                is_active INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS investments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                symbol TEXT NOT NULL,
+                name TEXT NOT NULL,
+                amount REAL NOT NULL,
+                purchase_price REAL NOT NULL,
+                purchase_date TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            -- Index für bessere Performance
+            CREATE INDEX IF NOT EXISTS idx_investments_user_id ON investments(user_id);
+            CREATE INDEX IF NOT EXISTS idx_investments_symbol ON investments(symbol);
+            CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
+            CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
+            CREATE INDEX IF NOT EXISTS idx_categories_type ON categories(type);
+            CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+            CREATE INDEX IF NOT EXISTS idx_sessions_session ON sessions(session_id);
+            CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON system_logs(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_logs_user ON system_logs(user_id);
+            CREATE INDEX IF NOT EXISTS idx_logs_level ON system_logs(level);
         SQL;
 
         $pdo->beginTransaction();
@@ -136,6 +174,7 @@ class Database
             $pdo->exec($schemaSql);
             $this->migrateExistingUsers();
             $this->migrateRecurringTransactions();
+            $this->insertDefaultData(); // NEU: Default-User erstellen
             $pdo->commit();
         } catch (Throwable $t) {
             $pdo->rollBack();
@@ -144,32 +183,152 @@ class Database
     }
 
     /**
-     * Migration für bestehende Benutzer ohne starting_balance Spalte
+     * Default-Daten einfügen (Admin und Demo User)
+     */
+    private function insertDefaultData(): void
+    {
+        $pdo = $this->getConnection();
+
+        // Prüfe ob Admin User existiert
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE username = 'admin'");
+        $stmt->execute();
+        $adminExists = $stmt->fetch();
+
+        if (!$adminExists) {
+            try {
+                // Admin User erstellen (Passwort: admin123)
+                $stmt = $pdo->prepare("
+                    INSERT INTO users (username, password, email, full_name, role, is_active, starting_balance) 
+                    VALUES (:username, :password, :email, :full_name, :role, :is_active, :balance)
+                ");
+
+                $stmt->execute([
+                    ':username' => 'admin',
+                    ':password' => password_hash('admin123', PASSWORD_DEFAULT),
+                    ':email' => 'admin@cashbook.local',
+                    ':full_name' => 'System Administrator',
+                    ':role' => 'admin',
+                    ':is_active' => 1,
+                    ':balance' => 1000.00
+                ]);
+
+                $admin_id = (int)$pdo->lastInsertId();
+
+                // Demo User erstellen (Passwort: demo123)
+                $stmt->execute([
+                    ':username' => 'demo',
+                    ':password' => password_hash('demo123', PASSWORD_DEFAULT),
+                    ':email' => 'demo@cashbook.local',
+                    ':full_name' => 'Demo User',
+                    ':role' => 'user',
+                    ':is_active' => 1,
+                    ':balance' => 500.00
+                ]);
+
+                $demo_id = (int)$pdo->lastInsertId();
+
+                // Standard-Kategorien direkt hier erstellen (ohne eigene Transaktion)
+                $this->insertDefaultCategories($admin_id);
+
+                error_log("Default users created: admin (ID: $admin_id) and demo (ID: $demo_id)");
+            } catch (PDOException $e) {
+                error_log("Could not create default users: " . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Default-Kategorien einfügen (ohne eigene Transaktion)
+     */
+    private function insertDefaultCategories(int $user_id): void
+    {
+        $pdo = $this->getConnection();
+
+        // Prüfe ob bereits Kategorien existieren
+        $check = $pdo->prepare('SELECT COUNT(*) AS cnt FROM categories');
+        $check->execute();
+        $row = $check->fetch();
+        if ($row && (int)$row['cnt'] > 0) {
+            return;
+        }
+
+        $default_categories = [
+            // Income categories
+            ['name' => 'Gehalt',      'type' => 'income',  'color' => '#4ade80', 'icon' => '💼'],
+            ['name' => 'Freelance',   'type' => 'income',  'color' => '#22c55e', 'icon' => '💻'],
+            ['name' => 'Bonus',       'type' => 'income',  'color' => '#10b981', 'icon' => '🎉'],
+
+            // Expense categories
+            ['name' => 'Lebensmittel', 'type' => 'expense', 'color' => '#f97316', 'icon' => '🛒'],
+            ['name' => 'Miete',       'type' => 'expense', 'color' => '#9333ea', 'icon' => '🏠'],
+            ['name' => 'Transport',   'type' => 'expense', 'color' => '#78716c', 'icon' => '🚗'],
+            ['name' => 'Freizeit',    'type' => 'expense', 'color' => '#ec4899', 'icon' => '🎬'],
+            ['name' => 'Gesundheit',  'type' => 'expense', 'color' => '#ef4444', 'icon' => '⚕️'],
+
+            // Debt categories
+            ['name' => 'Firma → Privat', 'type' => 'debt_out', 'color' => '#fbbf24', 'icon' => '<i class="fa-solid fa-money-bill-wave"></i>'],
+            ['name' => 'Privat → Firma', 'type' => 'debt_in',  'color' => '#22c55e', 'icon' => '<i class="fa-solid fa-sack-dollar"></i>'],
+            ['name' => 'Darlehen vergeben', 'type' => 'debt_out', 'color' => '#f97316', 'icon' => '🤝'],
+            ['name' => 'Darlehen erhalten', 'type' => 'debt_in',  'color' => '#3b82f6', 'icon' => '🏦'],
+        ];
+
+        $stmt = $pdo->prepare('
+            INSERT INTO categories (user_id, name, type, color, icon)
+            VALUES (?, ?, ?, ?, ?)
+        ');
+
+        foreach ($default_categories as $c) {
+            $stmt->execute([$user_id, $c['name'], $c['type'], $c['color'], $c['icon']]);
+        }
+    }
+
+    /**
+     * Migration für bestehende Benutzer - erweitert Felder
      */
     private function migrateExistingUsers(): void
     {
         $pdo = $this->getConnection();
 
         try {
-            // Prüfe ob starting_balance Spalte bereits existiert
+            // Prüfe ob alle neuen Spalten existieren
             $stmt = $pdo->prepare("PRAGMA table_info(users)");
             $stmt->execute();
             $columns = $stmt->fetchAll();
 
-            $hasStartingBalance = false;
-            foreach ($columns as $column) {
-                if ($column['name'] === 'starting_balance') {
-                    $hasStartingBalance = true;
-                    break;
-                }
-            }
+            $columnNames = array_column($columns, 'name');
 
-            // Füge Spalte hinzu wenn sie nicht existiert
-            if (!$hasStartingBalance) {
+            // Füge fehlende Spalten hinzu
+            if (!in_array('starting_balance', $columnNames)) {
                 $pdo->exec("ALTER TABLE users ADD COLUMN starting_balance REAL DEFAULT 0.00");
             }
+
+            if (!in_array('full_name', $columnNames)) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN full_name TEXT");
+            }
+
+            if (!in_array('role', $columnNames)) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'");
+            }
+
+            if (!in_array('is_active', $columnNames)) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1");
+            }
+
+            if (!in_array('last_login', $columnNames)) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN last_login DATETIME");
+            }
+
+            if (!in_array('updated_at', $columnNames)) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+            }
+
+            // Migriere password_hash zu password wenn nötig
+            if (in_array('password_hash', $columnNames) && !in_array('password', $columnNames)) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN password TEXT");
+                $pdo->exec("UPDATE users SET password = password_hash WHERE password IS NULL");
+            }
         } catch (PDOException $e) {
-            // Spalte existiert bereits oder anderer Fehler - das ist okay
+            // Spalten existieren bereits oder anderer Fehler - das ist okay
             error_log("Migration info: " . $e->getMessage());
         }
     }
@@ -263,13 +422,16 @@ class Database
 
     /**
      * Creates a new user account with hashed password
+     * UPDATED: Unterstützt neue User-Felder
      *
      * @param string $username
      * @param string $email
-     * @param string $password
+     * @param string $password_plain
+     * @param string|null $full_name
+     * @param string $role
      * @return int User ID
      */
-    public function createUser(string $username, string $email, string $password): int
+    public function createUser(string $username, string $email, string $password_plain, ?string $full_name = null, string $role = 'user'): int
     {
         $pdo = $this->getConnection();
 
@@ -280,14 +442,14 @@ class Database
             throw new RuntimeException('User already exists');
         }
 
-        $password_hash = password_hash($password, PASSWORD_DEFAULT);
+        $password_hash = password_hash($password_plain, PASSWORD_DEFAULT);
 
         $stmt = $pdo->prepare('
-            INSERT INTO users (username, email, password_hash, starting_balance)
-            VALUES (?, ?, ?, 0.00)
+            INSERT INTO users (username, email, password, full_name, role, is_active, starting_balance)
+            VALUES (?, ?, ?, ?, ?, 1, 0.00)
         ');
 
-        $stmt->execute([$username, $email, $password_hash]);
+        $stmt->execute([$username, $email, $password_hash, $full_name ?? $username, $role]);
         $user_id = (int)$pdo->lastInsertId();
 
         // Create default categories for new user (only if no categories exist)
@@ -298,6 +460,7 @@ class Database
 
     /**
      * Authenticate user by username/email and password
+     * UPDATED: Unterstützt beide password Feldnamen
      *
      * @param string $identifier Username or email
      * @param string $password
@@ -308,19 +471,30 @@ class Database
         $pdo = $this->getConnection();
 
         $stmt = $pdo->prepare('
-            SELECT id, username, email, password_hash, starting_balance
+            SELECT *
             FROM users 
-            WHERE username = ? OR email = ?
+            WHERE (username = ? OR email = ?) AND is_active = 1
         ');
         $stmt->execute([$identifier, $identifier]);
         $user = $stmt->fetch();
 
-        if (!$user || !password_verify($password, $user['password_hash'])) {
+        if (!$user) {
             return null;
         }
 
-        // Remove password_hash from return data
-        unset($user['password_hash']);
+        // Unterstütze beide Feldnamen für Abwärtskompatibilität
+        $password_field = $user['password'] ?? $user['password_hash'] ?? null;
+
+        if (!$password_field || !password_verify($password, $password_field)) {
+            return null;
+        }
+
+        // Update last login
+        $updateStmt = $pdo->prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?');
+        $updateStmt->execute([$user['id']]);
+
+        // Remove password from return data
+        unset($user['password'], $user['password_hash']);
         return $user;
     }
 

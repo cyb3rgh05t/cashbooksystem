@@ -1,3 +1,29 @@
+-- Sessions Tabelle für Login-Tracking
+CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT UNIQUE NOT NULL,
+    user_id INTEGER NOT NULL,
+    ip_address TEXT,
+    user_agent TEXT,
+    last_activity DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- System Logs Tabelle für Audit-Trail
+CREATE TABLE IF NOT EXISTS system_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    level TEXT NOT NULL CHECK(level IN ('INFO', 'SUCCESS', 'WARNING', 'ERROR', 'CRITICAL')),
+    category TEXT,
+    message TEXT NOT NULL,
+    user_id INTEGER,
+    ip_address TEXT,
+    user_agent TEXT,
+    additional_data TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 -- Benutzer-Tabelle (Mit Startkapital erweitert)
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,6 +87,11 @@ CREATE TABLE IF NOT EXISTS investments (
 -- Index für bessere Performance
 CREATE INDEX IF NOT EXISTS idx_investments_user_id ON investments(user_id);
 CREATE INDEX IF NOT EXISTS idx_investments_symbol ON investments(symbol);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_session ON sessions(session_id);
+CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON system_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_logs_user ON system_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_logs_level ON system_logs(level);
 
 -- Standard-Kategorien einfügen (aktualisierte Struktur)
 INSERT OR IGNORE INTO categories (id, user_id, name, type, color, icon) VALUES 

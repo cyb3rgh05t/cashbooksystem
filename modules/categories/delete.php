@@ -1,17 +1,17 @@
 <?php
-session_start();
-
-// Auth check
-if (!isset($_SESSION['user_id'])) {
-    header('Location: ../../index.php');
-    exit;
-}
-
+require_once '../../includes/auth.php';
 require_once '../../config/database.php';
 
+// Require login mit Auth-Klasse
+$auth->requireLogin();
+
+// Get current user
+$currentUser = $auth->getCurrentUser();
+$user_id = $currentUser['id'];
+
+// Database connection
 $db = new Database();
 $pdo = $db->getConnection();
-$user_id = $_SESSION['user_id'];
 
 $category_id = $_GET['id'] ?? '';
 

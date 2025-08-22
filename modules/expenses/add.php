@@ -1,17 +1,17 @@
 <?php
-session_start();
-
-// Auth check
-if (!isset($_SESSION['user_id'])) {
-    header('Location: ../../index.php');
-    exit;
-}
-
+require_once '../../includes/auth.php';
 require_once '../../config/database.php';
 
+// Require login mit Auth-Klasse
+$auth->requireLogin();
+
+// Get current user
+$currentUser = $auth->getCurrentUser();
+$user_id = $currentUser['id'];
+
+// Database connection
 $db = new Database();
 $pdo = $db->getConnection();
-$user_id = $_SESSION['user_id'];
 
 // FIXED: Kategorien für Dropdown laden (ohne user_id Filter)
 $stmt = $pdo->prepare("SELECT * FROM categories WHERE type = 'expense' ORDER BY name");
@@ -116,7 +116,7 @@ $form_data = [
                     <img src="../../assets/images/logo.png" alt="Meine Firma Finance Logo" class="sidebar-logo-image">
 
                 </a>
-                <p class="sidebar-welcome">Willkommen, <?= htmlspecialchars($_SESSION['username']) ?></p>
+                <p class="sidebar-welcome">Willkommen, <?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username']) ?></p>
             </div>
 
             <nav>
