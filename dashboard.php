@@ -7,8 +7,9 @@
 
 require_once 'includes/auth.php';
 require_once 'config/database.php';
-require_once 'includes/timezone.php';  // Timezone Helper
+require_once 'includes/timezone.php';
 require_once 'includes/init_logger.php';
+require_once 'includes/role_check.php';
 
 // Require login
 $auth->requireLogin();
@@ -489,12 +490,15 @@ $due_recurring = $db->getDueRecurringTransactions($user_id, 3);
             <nav>
                 <ul class="sidebar-nav">
                     <li><a href="dashboard.php" class="active"><i class="fa-solid fa-house"></i>&nbsp;&nbsp;Dashboard</a></li>
-                    <li><a href="modules/expenses/index.php"><i class="fa-solid fa-money-bill-wave"></i>&nbsp;&nbsp;Ausgaben</a></li>
-                    <li><a href="modules/income/index.php"><i class="fa-solid fa-sack-dollar"></i>&nbsp;&nbsp;Einnahmen</a></li>
-                    <li><a href="modules/debts/index.php"><i class="fa-solid fa-handshake"></i>&nbsp;&nbsp;Schulden</a></li>
-                    <li><a href="modules/recurring/index.php"><i class="fas fa-sync"></i>&nbsp;&nbsp;Wiederkehrend</a></li>
-                    <li><a href="modules/investments/index.php"><i class="fa-brands fa-btc"></i>&nbsp;&nbsp;Crypto</a></li>
-                    <li><a href="modules/categories/index.php"><i class="fa-solid fa-layer-group"></i>&nbsp;&nbsp;Kategorien</a></li>
+
+                    <?php if (canAccessModules($currentUser)): ?>
+                        <li><a href="modules/expenses/index.php"><i class="fa-solid fa-money-bill-wave"></i>&nbsp;&nbsp;Ausgaben</a></li>
+                        <li><a href="modules/income/index.php"><i class="fa-solid fa-sack-dollar"></i>&nbsp;&nbsp;Einnahmen</a></li>
+                        <li><a href="modules/debts/index.php"><i class="fa-solid fa-handshake"></i>&nbsp;&nbsp;Schulden</a></li>
+                        <li><a href="modules/recurring/index.php"><i class="fas fa-sync"></i>&nbsp;&nbsp;Wiederkehrend</a></li>
+                        <li><a href="modules/investments/index.php"><i class="fa-brands fa-btc"></i>&nbsp;&nbsp;Crypto</a></li>
+                        <li><a href="modules/categories/index.php"><i class="fa-solid fa-layer-group"></i>&nbsp;&nbsp;Kategorien</a></li>
+                    <?php endif; ?>
                     <li>
                         <a style="margin-top: 20px; border-top: 1px solid var(--clr-surface-a20); padding-top: 20px;" href="settings.php">
                             <i class="fa-solid fa-gear"></i>&nbsp;&nbsp;Einstellungen
@@ -513,13 +517,15 @@ $due_recurring = $db->getDueRecurringTransactions($user_id, 3);
                     <h1><i class="fa-solid fa-house"></i>&nbsp;&nbsp;Dashboard</h1>
                     <p>Gemeinsamer Überblick über die Finanzen - <?= date('F Y') ?></p>
                 </div>
-                <div class="quick-actions">
-                    <a href="modules/income/add.php" class="btn btn-primary">+ Einnahme</a>
-                    <a href="modules/expenses/add.php" class="btn btn-secondary">+ Ausgabe</a>
-                    <a href="modules/debts/add.php?type=debt_in" class="btn" style="background: #22c55e; color: white;">+ Geld erhalten / leihen</a>
-                    <a href="modules/debts/add.php?type=debt_out" class="btn" style="background: #f97316; color: white;">+ Geld verleihen</a>
-                    <a href="modules/investments/add.php" class="btn" style="background: #f59e0b; color: white;">+ Investment</a>
-                </div>
+                <?php if (canEditEntries($currentUser)): ?>
+                    <div class="quick-actions">
+                        <a href="modules/income/add.php" class="btn btn-primary">+ Einnahme</a>
+                        <a href="modules/expenses/add.php" class="btn btn-secondary">+ Ausgabe</a>
+                        <a href="modules/debts/add.php?type=debt_in" class="btn" style="background: #22c55e; color: white;">+ Geld erhalten / leihen</a>
+                        <a href="modules/debts/add.php?type=debt_out" class="btn" style="background: #f97316; color: white;">+ Geld verleihen</a>
+                        <a href="modules/investments/add.php" class="btn" style="background: #f59e0b; color: white;">+ Investment</a>
+                    </div>
+                <?php endif; ?>
             </div>
 
             <?= $message ?>

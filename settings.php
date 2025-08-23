@@ -3,31 +3,7 @@ require_once 'includes/auth.php';
 require_once 'config/database.php';
 require_once 'includes/init_logger.php';
 require_once 'includes/timezone.php';
-
-// Zeitzone Update verarbeiten
-if (isset($_POST['update_timezone'])) {
-    $new_timezone = $_POST['timezone'] ?? '';
-
-    // Setze als MANUELLE Einstellung (true Flag)
-    if (TimezoneHelper::setTimezone($new_timezone, true)) {
-        $success_messages[] = 'Zeitzone erfolgreich aktualisiert und als persönliche Einstellung gespeichert!';
-    } else {
-        $errors[] = 'Ungültige Zeitzone ausgewählt.';
-    }
-}
-
-// Zeitzone auf Automatik zurücksetzen
-if (isset($_POST['reset_timezone'])) {
-    if (TimezoneHelper::resetToAutomatic($_SESSION['user_id'])) {
-        unset($_SESSION['timezone_manually_set']);
-        $success_messages[] = 'Zeitzone wurde auf automatische Erkennung zurückgesetzt!';
-    }
-}
-
-// Aktuelle Zeitzone holen
-$current_timezone = TimezoneHelper::getCurrentTimezone();
-$timezone_list = TimezoneHelper::getTimezoneList();
-$is_manually_set = isset($_SESSION['timezone_manually_set']) && $_SESSION['timezone_manually_set'];
+require_once 'includes/role_check.php';
 
 // Require login
 $auth->requireLogin();
@@ -35,6 +11,11 @@ $auth->requireLogin();
 // Get current user
 $currentUser = $auth->getCurrentUser();
 $user_id = $currentUser['id'];
+
+// Aktuelle Zeitzone holen
+$current_timezone = TimezoneHelper::getCurrentTimezone();
+$timezone_list = TimezoneHelper::getTimezoneList();
+$is_manually_set = isset($_SESSION['timezone_manually_set']) && $_SESSION['timezone_manually_set'];
 
 // Database connection
 $db = new Database();
@@ -64,7 +45,7 @@ $success = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // NEUEN USER ERSTELLEN (nur für Admins)
-    if (isset($_POST['create_user']) && $currentUser['role'] === 'admin') {
+    if (isset($_POST['create_user']) && canCreateUsers($currentUser)) {
         $new_username = trim($_POST['new_username'] ?? '');
         $new_email = trim($_POST['new_email'] ?? '');
         $new_password = $_POST['new_password'] ?? '';
@@ -106,124 +87,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // PROFIL UPDATE
+    // PROFIL UPDATE (für alle Rollen erlaubt)
     if (isset($_POST['update_profile'])) {
         $username = trim($_POST['username'] ?? '');
         $email = trim($_POST['email'] ?? '');
         $full_name = trim($_POST['full_name'] ?? '');
 
-        // Validierung
-        if (empty($username)) {
-            $errors[] = 'Benutzername ist erforderlich.';
-        } else {
-            // Check ob Username schon vergeben (außer eigener)
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
-            $stmt->execute([$username, $user_id]);
-            if ($stmt->fetch()) {
-                $errors[] = 'Benutzername bereits vergeben.';
-            }
-        }
-
-        if (empty($email)) {
-            $errors[] = 'E-Mail ist erforderlich.';
+        if (empty($username) || empty($email)) {
+            $errors[] = 'Benutzername und E-Mail sind erforderlich.';
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $errors[] = 'Ungültige E-Mail-Adresse.';
         } else {
-            // Check ob Email schon vergeben (außer eigener)
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
-            $stmt->execute([$email, $user_id]);
-            if ($stmt->fetch()) {
-                $errors[] = 'E-Mail bereits vergeben.';
-            }
-        }
-
-        if (empty($errors)) {
             try {
-                $stmt = $pdo->prepare("
-                    UPDATE users 
-                    SET username = ?, email = ?, full_name = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                ");
+                $stmt = $pdo->prepare("UPDATE users SET username = ?, email = ?, full_name = ? WHERE id = ?");
                 $stmt->execute([$username, $email, $full_name, $user_id]);
+                $success_messages[] = 'Profil erfolgreich aktualisiert!';
 
                 // Session updaten
                 $_SESSION['username'] = $username;
                 $_SESSION['email'] = $email;
 
-                $success_messages[] = 'Profil erfolgreich aktualisiert!';
-
-                // User-Daten neu laden
+                // CurrentUser neu laden
                 $currentUser = $auth->getCurrentUser();
-            } catch (PDOException $e) {
-                $errors[] = 'Datenbankfehler: ' . $e->getMessage();
+            } catch (Exception $e) {
+                $errors[] = 'Fehler beim Aktualisieren des Profils.';
             }
         }
     }
 
-    // PASSWORT ÄNDERN
+    // PASSWORT ÄNDERN (für alle Rollen erlaubt)
     if (isset($_POST['change_password'])) {
         $current_password = $_POST['current_password'] ?? '';
         $new_password = $_POST['new_password'] ?? '';
         $confirm_password = $_POST['confirm_password'] ?? '';
 
-        // Validierung
         if (empty($current_password) || empty($new_password) || empty($confirm_password)) {
-            $errors[] = 'Alle Passwortfelder müssen ausgefüllt werden.';
+            $errors[] = 'Alle Passwortfelder sind erforderlich.';
         } elseif ($new_password !== $confirm_password) {
-            $errors[] = 'Neue Passwörter stimmen nicht überein.';
+            $errors[] = 'Die neuen Passwörter stimmen nicht überein.';
         } elseif (strlen($new_password) < 6) {
-            $errors[] = 'Neues Passwort muss mindestens 6 Zeichen lang sein.';
+            $errors[] = 'Das neue Passwort muss mindestens 6 Zeichen lang sein.';
         } else {
-            // Prüfe altes Passwort
-            $password_field = $currentUser['password'] ?? $currentUser['password_hash'] ?? null;
-            if (!password_verify($current_password, $password_field)) {
-                $errors[] = 'Aktuelles Passwort ist falsch.';
-            } else {
-                // Passwort updaten
-                try {
-                    $new_hash = password_hash($new_password, PASSWORD_DEFAULT);
-                    $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
-                    $stmt->execute([$new_hash, $user_id]);
+            // Prüfe aktuelles Passwort
+            $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+            $stmt->execute([$user_id]);
+            $user = $stmt->fetch();
 
-                    $success_messages[] = 'Passwort erfolgreich geändert!';
-                } catch (PDOException $e) {
-                    $errors[] = 'Fehler beim Ändern des Passworts.';
-                }
+            if (!password_verify($current_password, $user['password'])) {
+                $errors[] = 'Das aktuelle Passwort ist falsch.';
+            } else {
+                // Update Passwort
+                $new_hash = password_hash($new_password, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+                $stmt->execute([$new_hash, $user_id]);
+                $success_messages[] = 'Passwort erfolgreich geändert!';
             }
         }
     }
 
-    // STARTKAPITAL UPDATE (bestehender Code)
-    if (isset($_POST['update_balance'])) {
-        $new_starting_balance = trim($_POST['starting_balance'] ?? '');
 
-        // Validierung
-        if (empty($new_starting_balance) && $new_starting_balance !== '0') {
-            $errors[] = 'Startkapital ist erforderlich.';
-        } elseif (!is_numeric($new_starting_balance)) {
-            $errors[] = 'Startkapital muss eine Zahl sein.';
+
+    // Zeitzone Update verarbeiten
+    if (isset($_POST['update_timezone'])) {
+        $new_timezone = $_POST['timezone'] ?? '';
+
+        // Setze als MANUELLE Einstellung (true Flag)
+        if (TimezoneHelper::setTimezone($new_timezone, true)) {
+            $success_messages[] = 'Zeitzone erfolgreich aktualisiert und als persönliche Einstellung gespeichert!';
         } else {
-            $new_starting_balance = floatval($new_starting_balance);
+            $errors[] = 'Ungültige Zeitzone ausgewählt.';
         }
+    }
 
-        if (empty($errors)) {
+    // Zeitzone auf Automatik zurücksetzen
+    if (isset($_POST['reset_timezone'])) {
+        if (TimezoneHelper::resetToAutomatic($_SESSION['user_id'])) {
+            unset($_SESSION['timezone_manually_set']);
+            $success_messages[] = 'Zeitzone wurde auf automatische Erkennung zurückgesetzt!';
+        }
+    }
+
+    // STARTKAPITAL UPDATE (nur für Admins)
+    if (isset($_POST['update_balance']) && canEditStartingBalance($currentUser)) {
+        $new_starting_balance = floatval($_POST['starting_balance'] ?? 0);
+
+        if ($new_starting_balance < 0) {
+            $errors[] = 'Startkapital kann nicht negativ sein.';
+        } else {
             try {
-                if ($db->updateStartingBalance($user_id, $new_starting_balance)) {
-                    $success_messages[] = 'Startkapital erfolgreich auf € ' . number_format($new_starting_balance, 2, ',', '.') . ' aktualisiert!';
-                    $current_starting_balance = $new_starting_balance;
+                $stmt = $pdo->prepare("UPDATE users SET starting_balance = ? WHERE id = ?");
+                $stmt->execute([$new_starting_balance, $user_id]);
 
-                    // Vermögen neu berechnen
-                    $cash_balance = $current_starting_balance + $total_income - $total_expenses;
-                    $total_balance_with_investments = $cash_balance + $total_investments - $total_debts;
-                } else {
-                    $errors[] = 'Fehler beim Aktualisieren des Startkapitals.';
-                }
+                $success_messages[] = 'Startkapital auf €' . number_format($new_starting_balance, 2, ',', '.') . ' aktualisiert!';
+                $current_starting_balance = $new_starting_balance;
+
+                // Vermögen neu berechnen
+                $cash_balance = $current_starting_balance + $total_income - $total_expenses;
+                $total_balance_with_investments = $cash_balance + $total_investment_value - $net_debt_position;
             } catch (Exception $e) {
-                $errors[] = 'Datenbankfehler: ' . $e->getMessage();
+                $errors[] = 'Fehler beim Aktualisieren des Startkapitals.';
             }
         }
     }
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -256,12 +223,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <nav>
                 <ul class="sidebar-nav">
                     <li><a href="dashboard.php"><i class="fa-solid fa-house"></i>&nbsp;&nbsp;Dashboard</a></li>
-                    <li><a href="modules/expenses/index.php"><i class="fa-solid fa-money-bill-wave"></i>&nbsp;&nbsp;Ausgaben</a></li>
-                    <li><a href="modules/income/index.php"><i class="fa-solid fa-sack-dollar"></i>&nbsp;&nbsp;Einnahmen</a></li>
-                    <li><a href="modules/debts/index.php"><i class="fa-solid fa-handshake"></i>&nbsp;&nbsp;Schulden</a></li>
-                    <li><a href="modules/recurring/index.php"><i class="fas fa-sync"></i>&nbsp;&nbsp;Wiederkehrend</a></li>
-                    <li><a href="modules/investments/index.php"><i class="fa-brands fa-btc"></i>&nbsp;&nbsp;Crypto</a></li>
-                    <li><a href="modules/categories/index.php"><i class="fa-solid fa-layer-group"></i>&nbsp;&nbsp;Kategorien</a></li>
+
+                    <?php if (canAccessModules($currentUser)): ?>
+                        <li><a href="modules/expenses/index.php"><i class="fa-solid fa-money-bill-wave"></i>&nbsp;&nbsp;Ausgaben</a></li>
+                        <li><a href="modules/income/index.php"><i class="fa-solid fa-sack-dollar"></i>&nbsp;&nbsp;Einnahmen</a></li>
+                        <li><a href="modules/debts/index.php"><i class="fa-solid fa-handshake"></i>&nbsp;&nbsp;Schulden</a></li>
+                        <li><a href="modules/recurring/index.php"><i class="fas fa-sync"></i>&nbsp;&nbsp;Wiederkehrend</a></li>
+                        <li><a href="modules/investments/index.php"><i class="fa-brands fa-btc"></i>&nbsp;&nbsp;Crypto</a></li>
+                        <li><a href="modules/categories/index.php"><i class="fa-solid fa-layer-group"></i>&nbsp;&nbsp;Kategorien</a></li>
+                    <?php endif; ?>
                     <li>
                         <a style="margin-top: 20px; border-top: 1px solid var(--clr-surface-a20); padding-top: 20px;" href="settings.php" class="active">
                             <i class="fa-solid fa-gear"></i>&nbsp;&nbsp;Einstellungen
@@ -450,30 +420,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </form>
                 </div>
 
-                <!-- Startkapital (bestehend) -->
-                <div class="settings-card">
-                    <div class="settings-header">
-                        <h2><i class="fa-solid fa-coins"></i>&nbsp;&nbsp;Startkapital</h2>
-                        <p>Definiere dein anfängliches Guthaben</p>
-                    </div>
-                    <form method="POST" class="settings-form">
-                        <div class="form-group">
-                            <label class="form-label" for="starting_balance">Startkapital (€)</label>
-                            <input type="number" id="starting_balance" name="starting_balance"
-                                class="form-input" step="0.01"
-                                value="<?= number_format($current_starting_balance, 2, '.', '') ?>" required>
-                            <small style="color: var(--clr-surface-a50);">
-                                Dieses Kapital wird zu deinem berechneten Vermögen hinzugefügt
-                            </small>
+                <?php if (canEditStartingBalance($currentUser)): ?>
+                    <!-- Startkapital (nur für Admins) -->
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <h2><i class="fa-solid fa-coins"></i>&nbsp;&nbsp;Startkapital</h2>
+                            <p>Definiere dein anfängliches Guthaben</p>
                         </div>
+                        <form method="POST" class="settings-form">
+                            <div class="form-group">
+                                <label class="form-label" for="starting_balance">Startkapital (€)</label>
+                                <input type="number" id="starting_balance" name="starting_balance"
+                                    class="form-input" step="0.01"
+                                    value="<?= number_format($current_starting_balance, 2, '.', '') ?>" required>
+                                <small style="color: var(--clr-surface-a50);">
+                                    Dieses Kapital wird zu deinem berechneten Vermögen hinzugefügt
+                                </small>
+                            </div>
 
-                        <button type="submit" name="update_balance" class="btn btn-primary">
-                            <i class="fa-solid fa-save"></i>&nbsp;&nbsp;Startkapital speichern
-                        </button>
-                    </form>
-                </div>
+                            <button type="submit" name="update_balance" class="btn btn-primary">
+                                <i class="fa-solid fa-save"></i>&nbsp;&nbsp;Startkapital speichern
+                            </button>
+                        </form>
+                    </div>
+                <?php endif; ?>
 
-                <?php if ($currentUser['role'] === 'admin'): ?>
+                <?php if (canCreateUsers($currentUser)): ?>
                     <!-- Admin: Neuen User erstellen -->
                     <div class="settings-card" style="grid-column: 1 / -1; background: linear-gradient(135deg, var(--clr-surface-a10), rgba(251, 191, 36, 0.1));">
                         <div class="settings-header">
@@ -511,11 +483,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </select>
                                 </div>
 
-                                <div class="form-group">
+                                <!-- <div class="form-group">
                                     <label class="form-label" for="new_starting_balance">Startkapital (€)</label>
                                     <input type="number" id="new_starting_balance" name="new_starting_balance"
                                         class="form-input" step="0.01" value="0">
-                                </div>
+                                </div> -->
                             </div>
 
                             <button type="submit" name="create_user" class="btn btn-primary" style="background: #fbbf24; margin-top: 10px;">
@@ -533,8 +505,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         <?php
                         // Alle User laden
-                        $all_users = $db->getAllUsers();
-                        $admin_count = $db->countUsersByRole('admin');
+                        $stmt = $pdo->prepare("SELECT id, username, email, full_name, role, is_active, last_login, created_at FROM users ORDER BY created_at DESC");
+                        $stmt->execute();
+                        $all_users = $stmt->fetchAll();
                         ?>
 
                         <div style="overflow-x: auto;">
@@ -546,7 +519,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <th style="padding: 12px; text-align: left; color: var(--clr-surface-a50);">Name</th>
                                         <th style="padding: 12px; text-align: center; color: var(--clr-surface-a50);">Rolle</th>
                                         <th style="padding: 12px; text-align: center; color: var(--clr-surface-a50);">Status</th>
-                                        <th style="padding: 12px; text-align: center; color: var(--clr-surface-a50);">Startkapital</th>
+                                        <!-- <th style="padding: 12px; text-align: center; color: var(--clr-surface-a50);">Startkapital</th> -->
                                         <th style="padding: 12px; text-align: left; color: var(--clr-surface-a50);">Letzter Login</th>
                                         <th style="padding: 12px; text-align: center; color: var(--clr-surface-a50);">Aktionen</th>
                                     </tr>
@@ -597,9 +570,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                                     </span>
                                                 <?php endif; ?>
                                             </td>
-                                            <td style="padding: 12px; text-align: center; color: var(--clr-surface-a70);">
+                                            <!-- <td style="padding: 12px; text-align: center; color: var(--clr-surface-a70);">
                                                 €<?= number_format($user['starting_balance'] ?? 0, 2, ',', '.') ?>
-                                            </td>
+                                            </td> -->
                                             <td style="padding: 12px; color: var(--clr-surface-a70);">
                                                 <?php if ($user['last_login']): ?>
                                                     <?= date('d.m.Y H:i', strtotime($user['last_login'])) ?>

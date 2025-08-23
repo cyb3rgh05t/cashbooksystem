@@ -213,7 +213,7 @@ class Database
                     ':full_name' => 'System Administrator',
                     ':role' => 'admin',
                     ':is_active' => 1,
-                    ':balance' => 1000.00
+                    ':balance' => 0.00
                 ]);
 
                 $admin_id = (int)$pdo->lastInsertId();
@@ -226,7 +226,7 @@ class Database
                     ':full_name' => 'Demo User',
                     ':role' => 'user',
                     ':is_active' => 1,
-                    ':balance' => 500.00
+                    ':balance' => 0.00
                 ]);
 
                 $demo_id = (int)$pdo->lastInsertId();
