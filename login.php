@@ -211,6 +211,43 @@ if (isset($_SESSION['logout_message'])) {
         </div>
     </div>
 
+    <!-- License Modal einbinden -->
+    <?php include 'includes/license_modal.php'; ?>
+
+    <script>
+        // Automatisch Modal öffnen wenn require_license Parameter vorhanden ist
+        document.addEventListener('DOMContentLoaded', function() {
+            // URL-Parameter prüfen
+            const urlParams = new URLSearchParams(window.location.search);
+
+            // Wenn require_license=1 vorhanden ist
+            if (urlParams.get('require_license') === '1') {
+                console.log('License required - opening modal');
+
+                // Prüfen ob User Admin ist (aus PHP Session)
+                const isAdmin = <?php echo isset($_SESSION['is_admin']) && $_SESSION['is_admin'] ? 'true' : 'false'; ?>;
+
+                // Modal öffnen mit Admin-Status
+                if (typeof openLicenseModal === 'function') {
+                    // Kurze Verzögerung für bessere UX
+                    setTimeout(function() {
+                        openLicenseModal(isAdmin);
+
+                        // Optional: Fehlermeldung anzeigen, wenn vorhanden
+                        <?php if (isset($_SESSION['license_error']) && $_SESSION['license_error']): ?>
+                            const errorDiv = document.getElementById('license-error');
+                            if (errorDiv) {
+                                errorDiv.textContent = 'Systemlizenz ungültig oder nicht vorhanden. Bitte aktivieren Sie eine gültige Lizenz.';
+                                errorDiv.style.display = 'flex';
+                            }
+                        <?php endif; ?>
+                    }, 500);
+                } else {
+                    console.error('openLicenseModal function not found');
+                }
+            }
+        });
+    </script>
 
 </body>
 

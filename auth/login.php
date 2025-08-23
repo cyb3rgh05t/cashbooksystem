@@ -24,30 +24,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $result = $auth->login($username, $password);
 
     if ($result['success']) {
-        // Login erfolgreich!
-
-        // NEU: Initialisiere Zeitzone nach erfolgreichem Login
-        // Dies lädt die gespeicherte Zeitzone aus der Datenbank
-        TimezoneHelper::initializeTimezone();
-
-        // NEU: Setze Flag für Dashboard, dass User gerade eingeloggt hat
-        // Damit kann das Dashboard einmalig die Browser-Zeitzone prüfen
-        $_SESSION['just_logged_in'] = true;
-
-        // Erfolgs-Nachricht
+        // Login erfolgreich
         $_SESSION['success'] = 'Erfolgreich angemeldet!';
-
-        // Weiterleitung zum Dashboard
         header('Location: ../dashboard.php');
         exit;
     } else {
         // Login fehlgeschlagen
         $_SESSION['error'] = $result['message'];
-        header('Location: ../login.php');
+
+        // WICHTIG: Bei Lizenzfehler mit Parameter weiterleiten
+        if (isset($result['require_license']) && $result['require_license']) {
+            header('Location: ../login.php?require_license=1');  // <-- Mit Parameter
+        } else {
+            header('Location: ../login.php');  // <-- Ohne Parameter
+        }
         exit;
     }
-} else {
-    // Keine POST-Daten, zurück zum Login
-    header('Location: ../login.php');
-    exit;
 }
