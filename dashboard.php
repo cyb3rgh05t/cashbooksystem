@@ -504,6 +504,7 @@ $due_recurring = $db->getDueRecurringTransactions($user_id, 3);
                             <i class="fa-solid fa-gear"></i>&nbsp;&nbsp;Einstellungen
                         </a>
                     </li>
+                    <li><a href="modules/settings/license.php"><i class="fas fa-key"></i>&nbsp;&nbsp;Lizenz</a></li>
                     <li>
                         <a href="logout.php"><i class="fa-solid fa-right-from-bracket"></i>&nbsp;&nbsp;Logout</a>
                     </li>
@@ -726,10 +727,6 @@ $due_recurring = $db->getDueRecurringTransactions($user_id, 3);
                 <?php endif; ?>
             </div>
 
-            <?php
-            // Ersetze den bestehenden Schulden-Übersicht und Vermögensberechnung Code in dashboard.php mit diesem:
-            ?>
-
             <!-- Verbesserte Schulden-Übersicht (nur anzeigen wenn Schulden vorhanden) -->
             <?php if ($total_debt_in > 0 || $total_debt_out > 0): ?>
                 <div class="debt-overview-card">
@@ -900,6 +897,7 @@ $due_recurring = $db->getDueRecurringTransactions($user_id, 3);
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
+
     </div>
     </div>
     </main>
@@ -941,6 +939,7 @@ $due_recurring = $db->getDueRecurringTransactions($user_id, 3);
             });
         </script>
     <?php endif; ?>
+    <?php include 'includes/debug_widget.php'; ?>
 </body>
 
 </html>

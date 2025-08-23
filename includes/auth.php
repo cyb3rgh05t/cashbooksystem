@@ -2,12 +2,11 @@
 
 /**
  * Authentication Class für Cashbook System
- * Adaptiert vom Billing System
+ * Mit WIRKLICH STRIKTER Lizenzprüfung und Logging
  */
 
 // Start session only if not already started
 if (session_status() === PHP_SESSION_NONE) {
-    // Session Cookie Einstellungen VOR session_start()
     ini_set('session.use_only_cookies', 1);
     ini_set('session.use_strict_mode', 1);
 
@@ -26,22 +25,68 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/logger.class.php';
 require_once __DIR__ . '/init_logger.php';
 
+// Lade License Helper nur wenn vorhanden
+if (file_exists(__DIR__ . '/license.class.php')) {
+    require_once __DIR__ . '/license.class.php';
+}
+
 class Auth
 {
     private $db;
     private $pdo;
     private $logger;
-    private $sessionTimeout = 3600; // 1 Stunde
+    private $license = null;
+    private $sessionTimeout = 3600;
+    private $licensingEnabled = true;
+    private $licenseCheckInterval = 60; // Prüfe jede Minute!
 
     public function __construct()
     {
-        // Cashbook verwendet Database class anders als Billing
         $this->db = new Database();
         $this->pdo = $this->db->getConnection();
         $this->logger = new Logger($this->pdo);
 
-        // Session Security
+        // License Helper initialisieren
+        if (class_exists('LicenseHelper')) {
+            $this->license = new LicenseHelper($this->pdo, $this->logger);
+        }
+
+        // Prüfe ob Lizenz-Config existiert
+        if (file_exists(__DIR__ . '/../config/license.php')) {
+            $config = require __DIR__ . '/../config/license.php';
+            $this->licensingEnabled = $config['enabled'] ?? true;
+        }
+
         $this->initializeSession();
+
+        // Debug-Logging aktivieren
+        $this->debugLog("Auth initialized - Licensing: " . ($this->licensingEnabled ? 'ON' : 'OFF'));
+    }
+
+    /**
+     * Debug-Logging für Konsole
+     */
+    private function debugLog($message, $data = null)
+    {
+        // Logging in Session für spätere Ausgabe
+        if (!isset($_SESSION['debug_logs'])) {
+            $_SESSION['debug_logs'] = [];
+        }
+
+        $timestamp = date('H:i:s');
+        $logEntry = "[{$timestamp}] AUTH: {$message}";
+
+        if ($data !== null) {
+            $logEntry .= " | Data: " . json_encode($data);
+        }
+
+        $_SESSION['debug_logs'][] = $logEntry;
+
+        // Auch in DB-Logger
+        $this->logger->info($message, $_SESSION['user_id'] ?? null, 'AUTH_DEBUG', $data);
+
+        // Für Konsole vorbereiten (wird im Dashboard ausgegeben)
+        $_SESSION['last_debug_log'] = $logEntry;
     }
 
     /**
@@ -49,7 +94,6 @@ class Auth
      */
     private function initializeSession()
     {
-        // Session ID regenerieren für Sicherheit (nur wenn noch nicht initialisiert)
         if (!isset($_SESSION['initialized'])) {
             session_regenerate_id(true);
             $_SESSION['initialized'] = true;
@@ -57,10 +101,40 @@ class Auth
     }
 
     /**
-     * User Login
+     * Hole GLOBALEN Lizenzschlüssel
      */
-    public function login($username, $password)
+    private function getGlobalLicenseKey()
     {
+        try {
+            $stmt = $this->pdo->prepare("
+                SELECT license_key 
+                FROM users 
+                WHERE license_key IS NOT NULL AND license_key != ''
+                ORDER BY 
+                    CASE WHEN role = 'admin' THEN 0 ELSE 1 END,
+                    id ASC
+                LIMIT 1
+            ");
+            $stmt->execute();
+            $result = $stmt->fetch();
+
+            $key = $result ? $result['license_key'] : null;
+            $this->debugLog("Global license key lookup", ['found' => $key !== null]);
+
+            return $key;
+        } catch (Exception $e) {
+            $this->debugLog("Error getting global license", ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /**
+     * User Login mit ABSOLUT STRIKTER Lizenzprüfung
+     */
+    public function login($username, $password, $licenseKey = null)
+    {
+        $this->debugLog("Login attempt", ['username' => $username]);
+
         // Validate input
         if (empty($username) || empty($password)) {
             $this->logger->warning("Login attempt with empty credentials");
@@ -72,124 +146,192 @@ class Auth
         $stmt->execute([':username' => $username]);
         $user = $stmt->fetch();
 
-        // Check password (unterstützt beide Feldnamen für Migration)
-        $password_field = isset($user['password_hash']) ? $user['password_hash'] : ($user['password'] ?? null);
-        if ($user && $password_field && password_verify($password, $password_field)) {
-            // Successful login
-            $this->createSession($user);
+        // Check password
+        $password_field = isset($user['password_hash']) ? $user['password_hash'] : ($user['password'] ?? '');
 
-            // Log successful login
-            $this->logger->success(
-                "User '{$username}' logged in successfully",
-                $user['id'],
-                'AUTH'
-            );
-
-            return ['success' => true, 'message' => 'Login erfolgreich'];
+        if (!$user || !password_verify($password, $password_field)) {
+            $this->debugLog("Login failed - invalid credentials");
+            $this->logger->warning("Failed login attempt", null, 'AUTH', ['username' => $username]);
+            return ['success' => false, 'message' => 'Ungültige Anmeldedaten'];
         }
 
-        // Log failed login
-        $this->logger->error(
-            "Failed login attempt for user '{$username}'",
-            null,
-            'AUTH'
-        );
+        $this->debugLog("Credentials valid, checking license...");
 
-        return ['success' => false, 'message' => 'Ungültiger Benutzername oder Passwort'];
-    }
+        // ABSOLUT STRIKTE LIZENZPRÜFUNG
+        if ($this->licensingEnabled && $this->license !== null) {
 
-    /**
-     * Create user session
-     */
-    private function createSession($user)
-    {
-        // Regenerate session ID for security
-        session_regenerate_id(true);
+            // Wenn neue Lizenz mitgegeben und User ist Admin
+            if (!empty($licenseKey) && $user['role'] === 'admin') {
+                $this->debugLog("Admin providing new license key");
+                $this->updateUserLicense($user['id'], $licenseKey);
 
-        // Set session variables
+                // WICHTIG: Cache löschen!
+                $this->clearLicenseCache();
+            }
+
+            // Hole GLOBALE Lizenz
+            $globalLicenseKey = $this->getGlobalLicenseKey();
+
+            if (!$globalLicenseKey) {
+                $this->debugLog("NO GLOBAL LICENSE FOUND - blocking login");
+
+                $_SESSION['pending_user_id'] = $user['id'];
+                $_SESSION['pending_username'] = $user['username'];
+                $_SESSION['is_admin'] = ($user['role'] === 'admin');
+
+                return [
+                    'success' => false,
+                    'require_license' => true,
+                    'user_id' => $user['id'],
+                    'message' => 'Keine Systemlizenz vorhanden.',
+                    'license_error' => true
+                ];
+            }
+
+            $this->debugLog("Validating license online", ['key' => substr($globalLicenseKey, 0, 7) . '...']);
+
+            // IMMER ONLINE VALIDIEREN BEIM LOGIN - KEIN CACHE!
+            // Lösche Cache vor Validierung
+            $this->clearLicenseCache();
+
+            // Force Online Check
+            $validation = $this->license->validateLicense($globalLicenseKey, true); // true = FORCE ONLINE
+
+            $this->debugLog("License validation result", [
+                'valid' => $validation['valid'],
+                'error' => $validation['error'] ?? null,
+                'cached' => $validation['cached'] ?? false
+            ]);
+
+            if (!$validation['valid']) {
+                $this->debugLog("LICENSE INVALID - blocking login");
+
+                $_SESSION['pending_user_id'] = $user['id'];
+                $_SESSION['pending_username'] = $user['username'];
+                $_SESSION['is_admin'] = ($user['role'] === 'admin');
+
+                return [
+                    'success' => false,
+                    'require_license' => true,
+                    'user_id' => $user['id'],
+                    'message' => 'Systemlizenz ungültig: ' . ($validation['error'] ?? 'Lizenz abgelaufen oder deaktiviert'),
+                    'license_error' => true
+                ];
+            }
+
+            $this->debugLog("License valid - storing in session");
+
+            // Speichere Lizenz-Info
+            $this->license->storeLicenseInSession($globalLicenseKey, $validation);
+            $_SESSION['global_license_key'] = $globalLicenseKey;
+            $_SESSION['last_license_check'] = time();
+        }
+
+        // Login erfolgreich
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
-        $_SESSION['email'] = $user['email'];
-        $_SESSION['logged_in'] = true;
-        $_SESSION['login_time'] = time();
+        $_SESSION['user_role'] = $user['role'] ?? 'user';
         $_SESSION['last_activity'] = time();
+        $_SESSION['just_logged_in'] = true;
 
-        // UPDATE: last_login in users Tabelle aktualisieren
-        $updateStmt = $this->pdo->prepare("
-        UPDATE users 
-        SET last_login = CURRENT_TIMESTAMP 
-        WHERE id = :user_id
-    ");
-        $updateStmt->execute([':user_id' => $user['id']]);
+        // Entferne pending flags
+        unset($_SESSION['pending_user_id']);
+        unset($_SESSION['pending_username']);
+        unset($_SESSION['is_admin']);
 
-        // Create session entry in database
+        // Update last login
+        $stmt = $this->pdo->prepare("UPDATE users SET last_login = datetime('now') WHERE id = :id");
+        $stmt->execute([':id' => $user['id']]);
+
+        // Session tracking
         $sessionId = session_id();
         $stmt = $this->pdo->prepare("
-        INSERT INTO sessions (session_id, user_id, ip_address, user_agent) 
-        VALUES (:session_id, :user_id, :ip, :agent)
-    ");
+            INSERT INTO sessions (session_id, user_id, ip_address, user_agent) 
+            VALUES (:session_id, :user_id, :ip, :agent)
+        ");
         $stmt->execute([
             ':session_id' => $sessionId,
             ':user_id' => $user['id'],
-            ':ip' => $this->getClientIP(),
-            ':agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+            ':ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+            ':agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
         ]);
+
+        $this->debugLog("Login successful for user: " . $user['username']);
+        $this->logger->info("User logged in successfully", $user['id'], 'AUTH');
+
+        return [
+            'success' => true,
+            'message' => 'Anmeldung erfolgreich',
+            'user' => $user
+        ];
     }
 
     /**
-     * User Logout
+     * Cache komplett löschen
      */
-    public function logout()
+    private function clearLicenseCache()
     {
-        $userId = $_SESSION['user_id'] ?? null;
-        $username = $_SESSION['username'] ?? 'Unknown';
+        if ($this->license && $this->pdo) {
+            try {
+                // Lösche ALLEN Cache
+                $stmt = $this->pdo->prepare("DELETE FROM license_cache");
+                $stmt->execute();
 
-        // Delete session from database
-        if ($userId) {
-            $sessionId = session_id();
-            $stmt = $this->pdo->prepare("DELETE FROM sessions WHERE session_id = :session_id");
-            $stmt->execute([':session_id' => $sessionId]);
+                // Lösche auch Session-Cache
+                unset($_SESSION['license']);
+                unset($_SESSION['last_license_check']);
 
-            // Log logout
-            $this->logger->info(
-                "User '{$username}' logged out",
-                $userId,
-                'AUTH'
-            );
+                $this->debugLog("License cache cleared completely");
+            } catch (Exception $e) {
+                $this->debugLog("Error clearing cache", ['error' => $e->getMessage()]);
+            }
         }
-
-        // Clear session
-        $_SESSION = [];
-
-        // Destroy session cookie
-        if (ini_get("session.use_cookies")) {
-            $params = session_get_cookie_params();
-            setcookie(
-                session_name(),
-                '',
-                time() - 42000,
-                $params["path"],
-                $params["domain"],
-                $params["secure"],
-                $params["httponly"]
-            );
-        }
-
-        // Destroy session
-        session_destroy();
-
-        // Start new session for messages
-        session_start();
-        session_regenerate_id(true);
     }
 
     /**
-     * Check if user is logged in
+     * Aktualisiere Lizenzschlüssel
+     */
+    public function updateUserLicense($userId, $licenseKey)
+    {
+        try {
+            // Prüfe ob license_key Spalte existiert
+            $stmt = $this->pdo->query("PRAGMA table_info(users)");
+            $columns = $stmt->fetchAll();
+            $hasLicenseKey = false;
+
+            foreach ($columns as $column) {
+                if ($column['name'] === 'license_key') {
+                    $hasLicenseKey = true;
+                    break;
+                }
+            }
+
+            if (!$hasLicenseKey) {
+                $this->pdo->exec("ALTER TABLE users ADD COLUMN license_key TEXT");
+            }
+
+            // Update Lizenzschlüssel
+            $stmt = $this->pdo->prepare("UPDATE users SET license_key = :key WHERE id = :id");
+            $stmt->execute([':key' => $licenseKey, ':id' => $userId]);
+
+            // WICHTIG: Cache löschen!
+            $this->clearLicenseCache();
+
+            $this->debugLog("License key updated for user", ['user_id' => $userId]);
+
+            return true;
+        } catch (Exception $e) {
+            $this->logger->error("Failed to update license key: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Check if user is logged in mit STRIKTER Lizenzprüfung
      */
     public function isLoggedIn()
     {
-        // Check session
-        if (!isset($_SESSION['user_id']) || !isset($_SESSION['logged_in'])) {
+        if (!isset($_SESSION['user_id'])) {
             return false;
         }
 
@@ -197,16 +339,66 @@ class Auth
         if (isset($_SESSION['last_activity'])) {
             $inactive = time() - $_SESSION['last_activity'];
             if ($inactive > $this->sessionTimeout) {
+                $this->debugLog("Session timeout - logging out");
                 $this->logout();
-                $_SESSION['error'] = 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.';
+                $_SESSION['error'] = 'Sitzung abgelaufen.';
                 return false;
+            }
+        }
+
+        // STRIKTE LIZENZPRÜFUNG - JEDE MINUTE!
+        if ($this->licensingEnabled && $this->license !== null) {
+            $lastCheck = $_SESSION['last_license_check'] ?? 0;
+            $now = time();
+            $timeSinceCheck = $now - $lastCheck;
+
+            // Debug-Log alle 10 Sekunden
+            if ($timeSinceCheck > 10) {
+                $this->debugLog("License check status", [
+                    'time_since_last_check' => $timeSinceCheck . 's',
+                    'next_check_in' => max(0, $this->licenseCheckInterval - $timeSinceCheck) . 's'
+                ]);
+            }
+
+            // Prüfe jede Minute
+            if ($timeSinceCheck >= $this->licenseCheckInterval) {
+                $this->debugLog("PERFORMING LICENSE CHECK NOW!");
+
+                $globalLicenseKey = $_SESSION['global_license_key'] ?? $this->getGlobalLicenseKey();
+
+                if (!$globalLicenseKey) {
+                    $this->debugLog("NO LICENSE - FORCING LOGOUT!");
+                    $this->logout();
+                    $_SESSION['error'] = 'Keine Systemlizenz gefunden.';
+                    return false;
+                }
+
+                // IMMER ONLINE PRÜFEN - KEIN CACHE!
+                $this->clearLicenseCache();
+                $validation = $this->license->validateLicense($globalLicenseKey, true); // FORCE ONLINE
+
+                $this->debugLog("License revalidation result", [
+                    'valid' => $validation['valid'],
+                    'error' => $validation['error'] ?? null
+                ]);
+
+                if (!$validation['valid']) {
+                    $this->debugLog("LICENSE INVALID - FORCING LOGOUT!");
+                    $this->logout();
+                    $_SESSION['error'] = 'Systemlizenz ungültig oder abgelaufen: ' . ($validation['error'] ?? '');
+                    return false;
+                }
+
+                // Update Session
+                $this->license->storeLicenseInSession($globalLicenseKey, $validation);
+                $_SESSION['last_license_check'] = $now;
+
+                $this->debugLog("License check passed - session continues");
             }
         }
 
         // Update last activity
         $_SESSION['last_activity'] = time();
-
-        // Update database session
         $this->updateSessionActivity();
 
         return true;
@@ -227,14 +419,56 @@ class Auth
     }
 
     /**
+     * Validiere eine Lizenz ohne Login
+     */
+    public function validateLicenseKey($licenseKey, $userId = null)
+    {
+        if (!$this->license) {
+            return ['valid' => false, 'error' => 'Lizenzsystem nicht verfügbar'];
+        }
+
+        // IMMER online validieren
+        $this->clearLicenseCache();
+        $validation = $this->license->validateLicense($licenseKey, true);
+
+        if ($validation['valid'] && $userId) {
+            $this->updateUserLicense($userId, $licenseKey);
+        }
+
+        return $validation;
+    }
+
+    /**
+     * Logout
+     */
+    public function logout()
+    {
+        $userId = $_SESSION['user_id'] ?? null;
+
+        if ($userId) {
+            $sessionId = session_id();
+            $stmt = $this->pdo->prepare("DELETE FROM sessions WHERE session_id = :session_id");
+            $stmt->execute([':session_id' => $sessionId]);
+
+            $this->debugLog("User logged out", ['user_id' => $userId]);
+            $this->logger->info("User logged out", $userId, 'AUTH');
+        }
+
+        // Clear session
+        $_SESSION = [];
+        session_destroy();
+
+        // Start new session for messages
+        session_start();
+    }
+
+    /**
      * Require login
      */
     public function requireLogin()
     {
         if (!$this->isLoggedIn()) {
-            // Save requested URL
             $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
-
             header('Location: /index.php');
             exit;
         }
@@ -251,11 +485,28 @@ class Auth
 
         $stmt = $this->pdo->prepare("SELECT * FROM users WHERE id = :id");
         $stmt->execute([':id' => $_SESSION['user_id']]);
-        return $stmt->fetch();
+        $user = $stmt->fetch();
+
+        if ($user && $this->license !== null) {
+            $user['license'] = $this->license->getLicenseFromSession();
+        }
+
+        return $user;
     }
 
     /**
-     * Register new user (für Cashbook System angepasst)
+     * Check if user has feature access
+     */
+    public function hasFeature($feature)
+    {
+        if (!$this->licensingEnabled || $this->license === null) {
+            return true;
+        }
+        return $this->license->hasFeature($feature);
+    }
+
+    /**
+     * Register new user
      */
     public function register($data)
     {
@@ -281,7 +532,6 @@ class Auth
         // Hash password
         $passwordHash = password_hash($data['password'], PASSWORD_DEFAULT);
 
-        // Insert user (mit erweiterten Feldern)
         try {
             $stmt = $this->pdo->prepare("
                 INSERT INTO users (username, email, password, full_name, role, is_active, starting_balance) 
@@ -298,68 +548,64 @@ class Auth
                 ':balance' => $data['starting_balance'] ?? 0
             ]);
 
-            $userId = $this->pdo->lastInsertId();
+            $this->logger->info("New user registered", $this->pdo->lastInsertId(), 'AUTH', ['username' => $data['username']]);
 
-            // Log registration
-            $this->logger->success(
-                "New user registered: {$data['username']}",
-                $userId,
-                'AUTH'
-            );
+            // Prüfe ob globale Lizenz vorhanden
+            $globalLicense = $this->getGlobalLicenseKey();
 
-            return ['success' => true, 'message' => 'Registrierung erfolgreich'];
+            if (!$globalLicense) {
+                $_SESSION['pending_user_id'] = $this->pdo->lastInsertId();
+                $_SESSION['pending_username'] = $data['username'];
+
+                return [
+                    'success' => true,
+                    'message' => 'Registrierung erfolgreich! Bitte aktivieren Sie eine Systemlizenz.',
+                    'require_license' => true
+                ];
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Registrierung erfolgreich! Sie können sich jetzt anmelden.'
+            ];
         } catch (Exception $e) {
-            $this->logger->error(
-                "Registration failed: " . $e->getMessage(),
-                null,
-                'AUTH'
-            );
+            $this->logger->error("Registration failed: " . $e->getMessage(), null, 'AUTH');
             return ['success' => false, 'message' => 'Registrierung fehlgeschlagen'];
         }
     }
 
     /**
-     * Get client IP
+     * Get License Helper Instance
      */
-    private function getClientIP()
+    public function getLicenseHelper()
     {
-        $ipKeys = ['HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'];
-        foreach ($ipKeys as $key) {
-            if (array_key_exists($key, $_SERVER) === true) {
-                $ip = $_SERVER[$key];
-                if (strpos($ip, ',') !== false) {
-                    $ip = explode(',', $ip)[0];
-                }
-                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-                    return $ip;
-                }
-            }
-        }
-        return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        return $this->license;
     }
 
     /**
-     * Clean up old sessions
+     * Check if licensing is enabled
      */
-    public function cleanupSessions()
+    public function isLicensingEnabled()
     {
-        $expiredTime = date('Y-m-d H:i:s', time() - $this->sessionTimeout);
+        return $this->licensingEnabled && $this->license !== null;
+    }
 
-        $stmt = $this->pdo->prepare("
-            DELETE FROM sessions 
-            WHERE last_activity < :expired
-        ");
-        $deleted = $stmt->execute([':expired' => $expiredTime]);
+    /**
+     * Check if current user is admin
+     */
+    public function isAdmin()
+    {
+        return ($_SESSION['user_role'] ?? '') === 'admin';
+    }
 
-        if ($deleted) {
-            $this->logger->info(
-                "Cleaned up expired sessions",
-                null,
-                'AUTH'
-            );
-        }
+    /**
+     * Get debug logs for output
+     */
+    public function getDebugLogs()
+    {
+        return $_SESSION['debug_logs'] ?? [];
     }
 }
 
-// Create global auth instance
+// WICHTIG: Auth-Instanz global verfügbar machen
 $auth = new Auth();

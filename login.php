@@ -211,8 +211,7 @@ if (isset($_SESSION['logout_message'])) {
         </div>
     </div>
 
-    <!-- ENTFERNT: Das JavaScript für Zeitzone wird nie ausgeführt hier, 
-         da $_SESSION['user_id'] auf der Login-Seite nicht existiert -->
+
 </body>
 
 </html>
