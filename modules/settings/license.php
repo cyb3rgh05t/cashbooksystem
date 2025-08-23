@@ -113,6 +113,7 @@ $licenseInfo = $licenseHelper->getLicenseFromSession();
     <title>Lizenz-Verwaltung - Cashbook</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../assets/css/style.css">
+    <link rel="stylesheet" href="../../assets/css/settings.css">
     <link rel="stylesheet" href="../../assets/css/sidebar.css">
 </head>
 
@@ -121,8 +122,10 @@ $licenseInfo = $licenseHelper->getLicenseFromSession();
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h2>Cashbook</h2>
-                <p>Hallo, <?= htmlspecialchars($currentUser['username']) ?></p>
+                <a class="sidebar-logo">
+                    <img src="/assets/images/logo.png" alt="Meine Firma Finance Logo" class="sidebar-logo-image">
+                </a>
+                <p class="sidebar-welcome">Willkommen, <?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username']) ?></p>
             </div>
 
             <nav>

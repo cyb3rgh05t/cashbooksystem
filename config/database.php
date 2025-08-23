@@ -84,7 +84,21 @@ class Database
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 timezone TEXT DEFAULT 'Europe/Berlin',
-                timezone_manual INTEGER DEFAULT 0
+                timezone_manual INTEGER DEFAULT 0,
+                license_key TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS license_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                license_key TEXT UNIQUE NOT NULL,
+                hardware_id TEXT NOT NULL,
+                validation_data TEXT,
+                last_validation DATETIME,
+                expires_at DATETIME,
+                is_valid INTEGER DEFAULT 0,
+                features TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
 
             -- Sessions Tabelle für Login-Tracking
@@ -177,6 +191,9 @@ class Database
             CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON system_logs(timestamp);
             CREATE INDEX IF NOT EXISTS idx_logs_user ON system_logs(user_id);
             CREATE INDEX IF NOT EXISTS idx_logs_level ON system_logs(level);
+            CREATE INDEX IF NOT EXISTS idx_license_key ON license_cache (license_key);
+            CREATE INDEX IF NOT EXISTS idx_hardware_id ON license_cache (hardware_id);
+
         SQL;
 
         $pdo->beginTransaction();

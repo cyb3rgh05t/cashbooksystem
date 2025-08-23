@@ -2,6 +2,8 @@
 require_once 'includes/auth.php';
 require_once 'includes/init_logger.php';
 
+
+
 // Wenn bereits eingeloggt, weiterleiten zum Dashboard
 if ($auth->isLoggedIn()) {
     header('Location: dashboard.php');
@@ -214,31 +216,71 @@ if (isset($_SESSION['logout_message'])) {
     <!-- License Modal einbinden -->
     <?php include 'includes/license_modal.php'; ?>
 
+    <!-- Ersetze den kompletten <script> Block am Ende von login.php mit diesem Code: -->
+
     <script>
         // Automatisch Modal öffnen wenn require_license Parameter vorhanden ist
         document.addEventListener('DOMContentLoaded', function() {
             // URL-Parameter prüfen
             const urlParams = new URLSearchParams(window.location.search);
 
-            // Wenn require_license=1 vorhanden ist
+            // NUR wenn require_license=1 vorhanden ist, führe Lizenz-Check aus
             if (urlParams.get('require_license') === '1') {
-                console.log('License required - opening modal');
+                console.log('License required parameter detected');
 
-                // Prüfen ob User Admin ist (aus PHP Session)
+                // PHP-Variablen in JavaScript verfügbar machen
                 const isAdmin = <?php echo isset($_SESSION['is_admin']) && $_SESSION['is_admin'] ? 'true' : 'false'; ?>;
 
-                // Modal öffnen mit Admin-Status
+                // Prüfe ob bereits eine globale Lizenz existiert - NUR bei require_license=1!
+                const licenseActive = <?php
+                                        // NUR bei require_license Parameter prüfen!
+                                        if (isset($_GET['require_license']) && $_GET['require_license'] == '1') {
+                                            // Prüfe ob globale Lizenz vorhanden und gültig ist
+                                            if (isset($auth) && $auth->getLicenseHelper()) {
+                                                $globalKey = $_SESSION['global_license_key'] ?? null;
+
+                                                if ($globalKey) {
+                                                    // Nutze Cache für schnellere Prüfung
+                                                    $validation = $auth->getLicenseHelper()->validateLicense($globalKey, false);
+                                                    echo $validation['valid'] ? 'true' : 'false';
+                                                } else {
+                                                    echo 'false';
+                                                }
+                                            } else {
+                                                echo 'false';
+                                            }
+                                        } else {
+                                            // Wenn kein require_license Parameter, setze auf false
+                                            echo 'false';
+                                        }
+                                        ?>;
+
+                console.log('Admin status:', isAdmin);
+                console.log('License active:', licenseActive);
+
+                // Modal öffnen mit beiden Parametern
                 if (typeof openLicenseModal === 'function') {
                     // Kurze Verzögerung für bessere UX
                     setTimeout(function() {
-                        openLicenseModal(isAdmin);
+                        openLicenseModal(isAdmin, licenseActive);
 
-                        // Optional: Fehlermeldung anzeigen, wenn vorhanden
+                        // Wenn Lizenz bereits aktiv ist, automatisch nach 3 Sekunden schließen
+                        if (licenseActive) {
+                            setTimeout(function() {
+                                closeLicenseModal();
+                                // Redirect zum Dashboard
+                                window.location.href = 'dashboard.php';
+                            }, 3000);
+                        }
+
+                        // Fehlermeldung anzeigen, wenn vorhanden und Lizenz nicht aktiv
                         <?php if (isset($_SESSION['license_error']) && $_SESSION['license_error']): ?>
-                            const errorDiv = document.getElementById('license-error');
-                            if (errorDiv) {
-                                errorDiv.textContent = 'Systemlizenz ungültig oder nicht vorhanden. Bitte aktivieren Sie eine gültige Lizenz.';
-                                errorDiv.style.display = 'flex';
+                            if (!licenseActive) {
+                                const errorDiv = document.getElementById('license-error');
+                                if (errorDiv) {
+                                    errorDiv.textContent = 'Systemlizenz ungültig oder nicht vorhanden. Bitte aktivieren Sie eine gültige Lizenz.';
+                                    errorDiv.style.display = 'block';
+                                }
                             }
                         <?php endif; ?>
                     }, 500);
@@ -246,6 +288,7 @@ if (isset($_SESSION['logout_message'])) {
                     console.error('openLicenseModal function not found');
                 }
             }
+            // KEIN else - wenn kein require_license Parameter, dann NICHTS tun!
         });
     </script>
 

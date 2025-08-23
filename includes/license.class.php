@@ -242,18 +242,33 @@ class LicenseHelper
     }
 
     /**
-     * Lizenz cachen
+     * Lizenz cachen - Simplified ohne Transaktionen
      */
     private function cacheLicense($licenseKey, $hardwareId, $validationResult)
     {
         if (!$this->pdo) return;
 
+        // Skip caching if database might be locked
         try {
+            // Test if database is accessible with a simple query
+            $test = $this->pdo->query("SELECT 1");
+            if (!$test) return; // Database not accessible
+        } catch (Exception $e) {
+            // Database locked or other issue - skip caching silently
+            return;
+        }
+
+        try {
+            // Lösche alten Cache-Eintrag falls vorhanden
+            $stmt = $this->pdo->prepare("DELETE FROM license_cache WHERE license_key = ?");
+            $stmt->execute([$licenseKey]);
+
+            // Füge neuen Cache-Eintrag ein
             $stmt = $this->pdo->prepare("
-                INSERT OR REPLACE INTO license_cache 
-                (license_key, hardware_id, validation_data, last_validation, expires_at, is_valid, features, updated_at)
-                VALUES (?, ?, ?, datetime('now'), ?, ?, ?, datetime('now'))
-            ");
+            INSERT INTO license_cache 
+            (license_key, hardware_id, validation_data, last_validation, expires_at, is_valid, features, updated_at)
+            VALUES (?, ?, ?, datetime('now'), ?, ?, ?, datetime('now'))
+        ");
 
             $expiresAt = isset($validationResult['expires_at'])
                 ? date('Y-m-d H:i:s', $validationResult['expires_at'] / 1000)
@@ -267,10 +282,12 @@ class LicenseHelper
                 $validationResult['valid'] ? 1 : 0,
                 json_encode($validationResult['features'] ?? [])
             ]);
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
+            // Caching failed - log but don't throw
             if ($this->logger) {
-                $this->logger->error("Fehler beim Cachen der Lizenz: " . $e->getMessage());
+                $this->logger->error("Cache-Update fehlgeschlagen: " . $e->getMessage());
             }
+            // Continue without cache - no fatal error
         }
     }
 
