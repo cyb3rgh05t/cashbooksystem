@@ -2,12 +2,14 @@
 require_once '../../includes/auth.php';
 require_once '../../config/database.php';
 require_once '../../includes/init_logger.php';
+require_once '../../includes/role_check.php';
 
 // Require login mit Auth-Klasse
 $auth->requireLogin();
 
 // Get current user
 $currentUser = $auth->getCurrentUser();
+restrictViewerAccess($currentUser);
 $user_id = $currentUser['id'];
 
 // Database connection

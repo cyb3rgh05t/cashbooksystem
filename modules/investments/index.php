@@ -4,14 +4,17 @@ require_once '../../config/database.php';
 require_once '../../config/crypto_api.php';
 require_once '../../includes/init_logger.php';
 require_once '../../includes/timezone.php';
-TimezoneHelper::initializeTimezone();
+require_once '../../includes/role_check.php';
 
 // Require login mit Auth-Klasse
 $auth->requireLogin();
 
 // Get current user
 $currentUser = $auth->getCurrentUser();
+restrictViewerAccess($currentUser);
 $user_id = $currentUser['id'];
+
+TimezoneHelper::initializeTimezone();
 
 // Database connection
 $db = new Database();

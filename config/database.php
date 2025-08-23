@@ -10,6 +10,9 @@ class Database
     /** @var ?PDO */
     private $connection = null;
 
+    /** @var bool Track if database has been initialized */
+    private static $initialized = false;
+
     /**
      * @param string|null $dbPath Optional custom absolute/relative path to the SQLite file.
      */
@@ -17,7 +20,12 @@ class Database
     {
         // Default location: <project-root>/database/finance_tracker.db
         $this->db_file = $dbPath ?? (__DIR__ . '/../database/finance_tracker.db');
-        $this->initializeDatabase();
+
+        // Nur einmal initialisieren, nicht bei jeder Instanz
+        if (!self::$initialized) {
+            $this->initializeDatabase();
+            self::$initialized = true;
+        }
     }
 
     /**
@@ -190,7 +198,13 @@ class Database
      */
     private function insertDefaultData(): void
     {
+        // Zusätzliche Sicherung gegen mehrfache Ausführung
+        static $hasRun = false;
+        if ($hasRun) return;
+        $hasRun = true;
+
         $pdo = $this->getConnection();
+
 
         // Prüfe ob IRGENDEIN Admin User existiert (nicht nur der Demo-Admin)
         $stmt = $pdo->prepare("SELECT COUNT(*) as admin_count FROM users WHERE role = 'admin' AND is_active = 1");
@@ -239,7 +253,7 @@ class Database
                 error_log("Could not create default users: " . $e->getMessage());
             }
         } else {
-            error_log("Admin user already exists, skipping default user creation");
+            // error_log("Admin user already exists, skipping default user creation");
         }
     }
 
