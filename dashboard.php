@@ -337,7 +337,7 @@ $due_recurring = $db->getDueRecurringTransactions($user_id, 3);
             <!-- Content Grid -->
             <div class="dashboard-grid">
                 <!-- Letzte Transaktionen -->
-                <div class="card">
+                <div class="card" style="background: linear-gradient(135deg, var(--clr-surface-a10) 0%, var(--clr-surface-tonal-a10) 100%);">
                     <div class="card-header">
                         <h3 style="color: var(--clr-primary-a20);"><i class="fa-solid fa-clock-rotate-left"></i> Letzte Transaktionen</h3>
                         <a href="modules/expenses/index.php" style="color: var(--clr-primary-a20); text-decoration: none; font-size: 14px;">
@@ -386,7 +386,7 @@ $due_recurring = $db->getDueRecurringTransactions($user_id, 3);
 
                 <!-- Top Investments -->
                 <?php if (!empty($top_investments)): ?>
-                    <div class="card">
+                    <div class="card" style="background: linear-gradient(135deg, var(--clr-surface-a10) 0%, var(--clr-surface-tonal-a10) 100%);">
                         <div class="card-header">
                             <h3 style="color: var(--clr-primary-a20);"><i class="fa-brands fa-btc"></i> Top Investments</h3>
                             <a href="modules/investments/index.php" style="color: var(--clr-primary-a20); text-decoration: none; font-size: 14px;">

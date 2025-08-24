@@ -528,6 +528,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <tbody>
                                     <?php foreach ($all_users as $user): ?>
                                         <?php
+                                        $stmt = $pdo->prepare("SELECT COUNT(*) as admin_count FROM users WHERE role = 'admin' AND is_active = 1");
+                                        $stmt->execute();
+                                        $admin_count = $stmt->fetch()['admin_count'];
                                         $isCurrentUser = ($user['id'] == $currentUser['id']);
                                         $isLastAdmin = ($user['role'] === 'admin' && $admin_count <= 1);
                                         $canDelete = !$isCurrentUser && !$isLastAdmin;

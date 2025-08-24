@@ -148,7 +148,7 @@ $page_icon = $debt_type === 'debt_out' ? 'fa-solid fa-arrow-right' : 'fa-solid f
                             <i class="fa-solid fa-gear"></i>&nbsp;&nbsp;Einstellungen
                         </a>
                     </li>
-                    <li><a href="modules/settings/license.php"><i class="fas fa-key"></i>&nbsp;&nbsp;Lizenz</a></li>
+                    <li><a href="../settings/license.php"><i class="fas fa-key"></i>&nbsp;&nbsp;Lizenz</a></li>
                     <li>
                         <a href="../../logout.php"><i class="fa-solid fa-right-from-bracket"></i>&nbsp;&nbsp;Logout</a>
                     </li>

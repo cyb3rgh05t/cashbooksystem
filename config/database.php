@@ -124,7 +124,7 @@ class Database
                 ip_address TEXT,
                 user_agent TEXT,
                 additional_data TEXT,
-                FOREIGN KEY (user_id) REFERENCES users(id)
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS categories (
