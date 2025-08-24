@@ -8,6 +8,7 @@
 require_once '../../includes/auth.php';
 require_once '../../config/database.php';
 require_once '../../includes/init_logger.php';
+require_once '../../includes/role_check.php';
 
 // Require login
 $auth->requireLogin();
@@ -114,6 +115,7 @@ $licenseInfo = $licenseHelper->getLicenseFromSession();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../assets/css/style.css">
     <link rel="stylesheet" href="../../assets/css/settings.css">
+    <link rel="stylesheet" href="../../assets/css/license.css">
     <link rel="stylesheet" href="../../assets/css/sidebar.css">
 </head>
 
@@ -131,12 +133,14 @@ $licenseInfo = $licenseHelper->getLicenseFromSession();
             <nav>
                 <ul class="sidebar-nav">
                     <li><a href="../../dashboard.php"><i class="fa-solid fa-house"></i>&nbsp;&nbsp;Dashboard</a></li>
-                    <li><a href="../expenses/index.php"><i class="fa-solid fa-money-bill-wave"></i>&nbsp;&nbsp;Ausgaben</a></li>
-                    <li><a href="../income/index.php"><i class="fa-solid fa-sack-dollar"></i>&nbsp;&nbsp;Einnahmen</a></li>
-                    <li><a href="../debts/index.php"><i class="fa-solid fa-handshake"></i>&nbsp;&nbsp;Schulden</a></li>
-                    <li><a href="../recurring/index.php"><i class="fas fa-sync"></i>&nbsp;&nbsp;Wiederkehrend</a></li>
-                    <li><a href="../investments/index.php"><i class="fa-brands fa-btc"></i>&nbsp;&nbsp;Crypto</a></li>
-                    <li><a href="../categories/index.php"><i class="fa-solid fa-layer-group"></i>&nbsp;&nbsp;Kategorien</a></li>
+                    <?php if (canAccessModules($currentUser)): ?>
+                        <li><a href="../expenses/index.php"><i class="fa-solid fa-money-bill-wave"></i>&nbsp;&nbsp;Ausgaben</a></li>
+                        <li><a href="../income/index.php"><i class="fa-solid fa-sack-dollar"></i>&nbsp;&nbsp;Einnahmen</a></li>
+                        <li><a href="../debts/index.php"><i class="fa-solid fa-handshake"></i>&nbsp;&nbsp;Schulden</a></li>
+                        <li><a href="../recurring/index.php"><i class="fas fa-sync"></i>&nbsp;&nbsp;Wiederkehrend</a></li>
+                        <li><a href="../investments/index.php"><i class="fa-brands fa-btc"></i>&nbsp;&nbsp;Crypto</a></li>
+                        <li><a href="../categories/index.php"><i class="fa-solid fa-layer-group"></i>&nbsp;&nbsp;Kategorien</a></li>
+                    <?php endif; ?>
                     <li>
                         <a style="margin-top: 20px; border-top: 1px solid var(--clr-surface-a20); padding-top: 20px;" href="../../settings.php">
                             <i class="fa-solid fa-gear"></i>&nbsp;&nbsp;Einstellungen
@@ -179,74 +183,97 @@ $licenseInfo = $licenseHelper->getLicenseFromSession();
             <div class="dashboard-cards">
                 <?php if ($globalLicenseKey && $licenseInfo): ?>
                     <!-- Aktive Lizenz -->
-                    <div class="card" style="grid-column: span 2;">
-                        <div class="card-header">
-                            <h3><i class="fas fa-certificate"></i> Systemlizenz-Status</h3>
-                            <span class="badge <?= $licenseInfo['valid'] ? 'badge-success' : 'badge-error' ?>">
-                                <?= $licenseInfo['valid'] ? 'Aktiv' : 'Ungültig' ?>
+                    <div class="settings-card" style="grid-column: span 2;">
+                        <div class="settings-header card-header">
+                            <h2><i class="fas fa-certificate"></i> Systemlizenz-Status</h2>
+                            <span class="status-badge-large <?= $licenseInfo['valid'] ? 'active' : 'inactive' ?>">
+                                <i class="fas fa-<?= $licenseInfo['valid'] ? 'check-circle' : 'times-circle' ?>"></i>
+                                <?= $licenseInfo['valid'] ? 'AKTIV' : 'UNGÜLTIG' ?>
                             </span>
                         </div>
 
                         <div class="card-content">
-                            <div class="stats-grid" style="margin-bottom: 20px;">
-                                <div class="stat-item">
-                                    <div class="stat-label">Lizenzschlüssel</div>
-                                    <div class="stat-value" style="font-family: monospace; font-size: 14px;">
-                                        <?= htmlspecialchars(substr($globalLicenseKey, 0, 7)) ?>-****-****
-                                    </div>
-                                </div>
+                            <!-- Lizenzschlüssel Anzeige -->
+                            <div class="license-key-display">
+                                <i class="fas fa-key"></i>&nbsp;
+                                <?= htmlspecialchars(substr($globalLicenseKey, 0, 7)) ?>-****-****-****
+                            </div>
 
+                            <!-- Lizenz-Informationen Grid -->
+                            <div class="license-info-grid">
                                 <?php if (isset($licenseInfo['data']['user_info'])): ?>
-                                    <div class="stat-item">
-                                        <div class="stat-label">Lizenztyp</div>
-                                        <div class="stat-value">
+                                    <div class="license-info-item">
+                                        <div class="license-info-label">
+                                            <i class="fas fa-crown"></i> Lizenztyp
+                                        </div>
+                                        <div class="license-info-value">
                                             <?= htmlspecialchars($licenseInfo['data']['user_info']['license_type'] ?? 'Standard') ?>
                                         </div>
                                     </div>
                                 <?php endif; ?>
 
                                 <?php if ($licenseInfo['expires_at']): ?>
-                                    <div class="stat-item">
-                                        <div class="stat-label">Gültig bis</div>
-                                        <div class="stat-value">
+                                    <div class="license-info-item">
+                                        <div class="license-info-label">
+                                            <i class="fas fa-calendar-check"></i> Gültig bis
+                                        </div>
+                                        <div class="license-info-value">
                                             <?= date('d.m.Y', $licenseInfo['expires_at'] / 1000) ?>
                                         </div>
                                     </div>
                                 <?php endif; ?>
 
-                                <div class="stat-item">
-                                    <div class="stat-label">Hardware-ID</div>
-                                    <div class="stat-value" style="font-family: monospace; font-size: 11px; word-break: break-all;">
-                                        <?= htmlspecialchars($licenseInfo['hardware_id'] ?? $licenseHelper->generateHardwareId()) ?>
+                                <div class="license-info-item">
+                                    <div class="license-info-label">
+                                        <i class="fas fa-check-circle"></i> Letzte Prüfung
+                                    </div>
+                                    <div class="license-info-value">
+                                        <?= date('H:i:s', $_SESSION['last_license_check'] ?? time()) ?>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- Hardware-ID -->
+                            <div style="margin: 20px 0;">
+                                <div class="license-info-label">
+                                    <i class="fas fa-microchip"></i> Hardware-ID
+                                </div>
+                                <div class="hardware-id-display">
+                                    <?= htmlspecialchars($licenseInfo['hardware_id'] ?? $licenseHelper->generateHardwareId()) ?>
+                                </div>
+                            </div>
+
+                            <!-- Features -->
                             <?php if (!empty($licenseInfo['features'])): ?>
-                                <div style="margin-bottom: 20px;">
-                                    <div class="stat-label" style="margin-bottom: 10px;">Verfügbare Features</div>
+                                <div style="margin: 20px 0;">
+                                    <div class="license-info-label" style="margin-bottom: 12px;">
+                                        <i class="fas fa-star"></i> Verfügbare Features
+                                    </div>
                                     <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                                         <?php foreach ($licenseInfo['features'] as $feature): ?>
-                                            <span class="badge badge-primary"><?= htmlspecialchars($feature) ?></span>
+                                            <span class="feature-badge">
+                                                <i class="fas fa-check"></i> <?= htmlspecialchars($feature) ?>
+                                            </span>
                                         <?php endforeach; ?>
                                     </div>
                                 </div>
                             <?php endif; ?>
 
+                            <!-- Admin Actions -->
                             <?php if ($isAdmin): ?>
-                                <div class="button-group">
+                                <div class="license-actions">
                                     <form method="POST" style="display: inline;">
                                         <input type="hidden" name="action" value="validate_license">
                                         <button type="submit" class="btn btn-primary">
-                                            <i class="fas fa-sync"></i> Lizenz prüfen
+                                            <i class="fas fa-sync"></i>&nbsp;&nbsp;Lizenz prüfen
                                         </button>
                                     </form>
 
-                                    <form method="POST" style="display: inline;" onsubmit="return confirm('ACHTUNG: Ohne Lizenz kann sich niemand mehr einloggen! Fortfahren?');">
+                                    <form method="POST" style="display: inline;" onsubmit="return confirm('ACHTUNG: Ohne Lizenz kann sich niemand mehr einloggen!\n\nDiese Aktion kann nicht rückgängig gemacht werden.\n\nWirklich fortfahren?');">
                                         <input type="hidden" name="action" value="remove_license">
                                         <input type="hidden" name="confirm" value="yes">
                                         <button type="submit" class="btn btn-danger">
-                                            <i class="fas fa-trash"></i> Lizenz entfernen
+                                            <i class="fas fa-trash"></i>&nbsp;&nbsp;Lizenz entfernen
                                         </button>
                                     </form>
                                 </div>
@@ -255,66 +282,107 @@ $licenseInfo = $licenseHelper->getLicenseFromSession();
                     </div>
                 <?php else: ?>
                     <!-- Keine Lizenz -->
-                    <div class="card" style="grid-column: span 2;">
+                    <div class="card no-license-card" style="grid-column: span 2;">
                         <div class="card-header">
                             <h3><i class="fas fa-exclamation-triangle"></i> Keine Systemlizenz</h3>
-                            <span class="badge badge-error">Inaktiv</span>
+                            <span class="status-badge-large inactive">
+                                <i class="fas fa-times-circle"></i> INAKTIV
+                            </span>
                         </div>
 
                         <div class="card-content">
                             <?php if ($isAdmin): ?>
-                                <p style="margin-bottom: 20px;">
-                                    Das System hat keine aktive Lizenz. Bitte aktivieren Sie eine Lizenz,
-                                    damit sich Benutzer einloggen können.
-                                </p>
+                                <div class="alert alert-warning" style="margin-bottom: 20px;">
+                                    <i class="fas fa-info-circle"></i>
+                                    Das System hat keine aktive Lizenz. Ohne gültige Lizenz können sich Benutzer nicht einloggen.
+                                </div>
 
                                 <form method="POST">
                                     <input type="hidden" name="action" value="update_license">
 
                                     <div class="form-group">
-                                        <label for="license_key">Lizenzschlüssel:</label>
+                                        <label for="license_key" class="form-label">
+                                            <i class="fas fa-key"></i> Lizenzschlüssel eingeben:
+                                        </label>
                                         <input type="text"
                                             id="license_key"
                                             name="license_key"
+                                            class="form-input"
                                             placeholder="KFZ####-####-####-####"
-                                            style="text-transform: uppercase;"
+                                            style="text-transform: uppercase; font-family: 'Courier New', monospace; letter-spacing: 1px;"
                                             required>
                                     </div>
 
-                                    <div class="info-box" style="margin-bottom: 20px;">
-                                        <p><strong>Hardware-ID:</strong></p>
-                                        <code style="display: block; padding: 8px; background: var(--clr-surface-a10); border-radius: 4px; margin-top: 8px;">
+                                    <div style="margin: 20px 0;">
+                                        <div class="license-info-label">
+                                            <i class="fas fa-microchip"></i> Ihre Hardware-ID:
+                                        </div>
+                                        <div class="hardware-id-display" style="margin-top: 8px;">
                                             <?= htmlspecialchars($licenseHelper->generateHardwareId()) ?>
-                                        </code>
+                                        </div>
+                                        <small style="color: var(--clr-surface-a50); display: block; margin-top: 8px;">
+                                            Diese ID wird für die Lizenzaktivierung benötigt.
+                                        </small>
                                     </div>
 
-                                    <button type="submit" class="btn btn-primary">
+                                    <button type="submit" class="btn btn-primary btn-full">
                                         <i class="fas fa-check"></i> Lizenz aktivieren
                                     </button>
                                 </form>
                             <?php else: ?>
-                                <p>
+                                <div class="alert alert-error">
+                                    <i class="fas fa-lock"></i>
                                     Das System benötigt eine gültige Lizenz.
                                     Bitte kontaktieren Sie einen Administrator.
-                                </p>
+                                </div>
                             <?php endif; ?>
                         </div>
                     </div>
                 <?php endif; ?>
 
                 <!-- Info Card -->
-                <div class="card" style="grid-column: span 2;">
+                <div class="card info-card" style="grid-column: span 2;">
                     <div class="card-header">
-                        <h3><i class="fas fa-info-circle"></i> Informationen</h3>
+                        <h3><i class="fas fa-info-circle"></i> System-Informationen</h3>
                     </div>
                     <div class="card-content">
-                        <ul style="line-height: 1.8; color: var(--clr-surface-a70);">
-                            <li><strong>Systemlizenz:</strong> Eine Lizenz für die gesamte Installation</li>
-                            <li><strong>Hardware-Bindung:</strong> Die Lizenz wird an diese Installation gebunden</li>
-                            <li><strong>Validierung:</strong> Automatische Prüfung alle 60 Sekunden</li>
-                            <li><strong>Verwaltung:</strong> Nur Administratoren können die Lizenz ändern</li>
+                        <ul class="info-list">
+                            <li>
+                                <i class="fas fa-server"></i>
+                                <div>
+                                    <strong>Systemlizenz:</strong><br>
+                                    <span style="color: var(--clr-surface-a60);">Eine Lizenz gilt für die gesamte Installation und alle Benutzer</span>
+                                </div>
+                            </li>
+                            <li>
+                                <i class="fas fa-link"></i>
+                                <div>
+                                    <strong>Hardware-Bindung:</strong><br>
+                                    <span style="color: var(--clr-surface-a60);">Die Lizenz wird an diese spezifische Installation gebunden</span>
+                                </div>
+                            </li>
+                            <li>
+                                <i class="fas fa-shield-alt"></i>
+                                <div>
+                                    <strong>Validierung:</strong><br>
+                                    <span style="color: var(--clr-surface-a60);">Automatische Überprüfung alle 60 Sekunden während der Nutzung</span>
+                                </div>
+                            </li>
+                            <li>
+                                <i class="fas fa-user-shield"></i>
+                                <div>
+                                    <strong>Verwaltung:</strong><br>
+                                    <span style="color: var(--clr-surface-a60);">Nur Administratoren können die Systemlizenz ändern oder entfernen</span>
+                                </div>
+                            </li>
                             <?php if ($isAdmin): ?>
-                                <li><strong>Wichtig:</strong> Ohne gültige Lizenz kann sich niemand einloggen!</li>
+                                <li>
+                                    <i class="fas fa-exclamation-triangle" style="color: #f87171;"></i>
+                                    <div>
+                                        <strong style="color: #f87171;">Wichtiger Hinweis:</strong><br>
+                                        <span style="color: var(--clr-surface-a60);">Ohne gültige Lizenz ist kein Login möglich! Entfernen Sie die Lizenz nur, wenn Sie eine neue haben.</span>
+                                    </div>
+                                </li>
                             <?php endif; ?>
                         </ul>
                     </div>

@@ -56,7 +56,7 @@ $hardwareId = isset($auth) && $auth->getLicenseHelper() ? $auth->getLicenseHelpe
             </button>
         </form>
 
-        <!-- Error/Success Messages -->
+        <!-- Error/Success Messages - NUR EINE SUCCESS DIV -->
         <div id="license-error" class="alert alert-error" style="display: none;"></div>
         <div id="license-success" class="alert alert-success" style="display: none;"></div>
 
@@ -64,14 +64,7 @@ $hardwareId = isset($auth) && $auth->getLicenseHelper() ? $auth->getLicenseHelpe
             <i class="fas fa-lock"></i> Nur Administratoren können die Systemlizenz aktivieren
         </div>
 
-        <div id="license-already-active" class="alert alert-success" style="display: none;">
-            <i class="fas fa-check-circle"></i>
-            <div>
-                <strong>Systemlizenz ist bereits aktiv!</strong><br>
-                <span style="font-size: 12px;">Sie werden automatisch weitergeleitet...</span>
-            </div>
-        </div>
-
+        <!-- ENTFERNT: license-already-active div - nicht mehr benötigt -->
 
         <!-- Footer -->
         <div class="form-footer">
@@ -277,16 +270,17 @@ $hardwareId = isset($auth) && $auth->getLicenseHelper() ? $auth->getLicenseHelpe
     function openLicenseModal(isAdmin = false, licenseActive = false) {
         const modal = document.getElementById('licenseModal');
         const adminMsg = document.getElementById('admin-only-message');
-        const activeMsg = document.getElementById('license-already-active');
+        const successDiv = document.getElementById('license-success');
         const form = document.getElementById('licenseForm');
 
         // Reset all messages
         adminMsg.style.display = 'none';
-        activeMsg.style.display = 'none';
+        successDiv.style.display = 'none';
 
         if (licenseActive) {
-            // License is already active - show success message
-            activeMsg.style.display = 'block';
+            // License is already active - show success message using license-success div
+            successDiv.innerHTML = '<i class="fas fa-check-circle"></i> Systemlizenz ist bereits aktiv! Sie werden automatisch weitergeleitet...';
+            successDiv.style.display = 'block';
             form.style.display = 'none';
         } else if (!isAdmin) {
             // User is not admin and license not active - show error
@@ -295,7 +289,7 @@ $hardwareId = isset($auth) && $auth->getLicenseHelper() ? $auth->getLicenseHelpe
         } else {
             // Admin can activate license
             adminMsg.style.display = 'none';
-            activeMsg.style.display = 'none';
+            successDiv.style.display = 'none';
             form.style.display = 'block';
         }
 

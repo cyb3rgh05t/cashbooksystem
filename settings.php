@@ -237,6 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <i class="fa-solid fa-gear"></i>&nbsp;&nbsp;Einstellungen
                         </a>
                     </li>
+                    <li><a href="modules/settings/license.php"><i class="fas fa-key"></i>&nbsp;&nbsp;Lizenz</a></li>
                     <li>
                         <a href="logout.php"><i class="fa-solid fa-right-from-bracket"></i>&nbsp;&nbsp;Logout</a>
                     </li>
@@ -269,10 +270,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <!-- Vermögensübersicht - KOMPLETT REPARIERT -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <div class="card-icon"><i class="fa-solid fa-dollar"></i></div>
-                    <div class="card-title">Vermögensübersicht</div>
+            <div class="settings-card" style="grid-column: 1 / -1; background: linear-gradient(135deg, var(--clr-surface-a10) 0%, var(--clr-surface-tonal-a10) 100%);">
+                <div class="settings-header card-header">
+                    <h2><i class="fa-solid fa-dollar"></i>&nbsp;&nbsp;Vermögensübersicht</h2>
+
                 </div>
 
                 <div class="current-balance">
@@ -447,7 +448,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <?php if (canCreateUsers($currentUser)): ?>
                     <!-- Admin: Neuen User erstellen -->
-                    <div class="settings-card" style="grid-column: 1 / -1; background: linear-gradient(135deg, var(--clr-surface-a10), rgba(251, 191, 36, 0.1));">
+                    <div class="settings-card" style="grid-column: 1 / -1;">
                         <div class="settings-header">
                             <h2 style="color: #fbbf24;"><i class="fa-solid fa-user-plus"></i>&nbsp;&nbsp;Neuen Benutzer erstellen (Admin)</h2>
                             <p>Erstelle neue Benutzerkonten für das System</p>
@@ -479,7 +480,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <select id="new_role" name="new_role" class="form-select">
                                         <option value="user">Benutzer</option>
                                         <option value="admin">Administrator</option>
-                                        <option value="viewer">Betrachter</option>
+                                        <option value="viewer">Viewer</option>
                                     </select>
                                 </div>
 
@@ -601,7 +602,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </table>
                         </div>
 
-                        <div style="margin-top: 20px; padding: 15px; background: var(--clr-surface-a05); border-radius: 8px;">
+                        <div class="info-box" style="margin-top: 20px; padding: 15px; background: var(--clr-surface-a05); border-radius: 8px;">
                             <p style="color: var(--clr-surface-a60); font-size: 0.9em; margin: 0;">
                                 <i class="fa-solid fa-info-circle"></i>
                                 <strong>Hinweise:</strong><br>
@@ -682,13 +683,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div class="form-actions" style="display: flex; gap: 10px;">
                         <button type="submit" name="update_timezone" class="btn btn-primary">
-                            <i class="fa-solid fa-save"></i> Zeitzone speichern
+                            <i class="fa-solid fa-save"></i>&nbsp;&nbsp;Zeitzone speichern
                         </button>
 
                         <?php if ($is_manually_set): ?>
                             <button type="submit" name="reset_timezone" class="btn btn-secondary"
                                 onclick="return confirm('Möchtest du wirklich zur automatischen Erkennung zurückkehren?');">
-                                <i class="fa-solid fa-undo"></i> Automatik aktivieren
+                                <i class="fa-solid fa-undo"></i>&nbsp;&nbsp;Automatik aktivieren
                             </button>
                         <?php endif; ?>
                     </div>
@@ -696,94 +697,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </main>
     </div>
-
-    <style>
-        .settings-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-
-        .settings-card {
-            background: var(--clr-surface-a10);
-            border: 1px solid var(--clr-surface-a20);
-            border-radius: 12px;
-            padding: 24px;
-        }
-
-        .settings-header {
-            margin-bottom: 20px;
-        }
-
-        .settings-header h2 {
-            color: var(--clr-primary-a20);
-            font-size: 1.2rem;
-            margin-bottom: 8px;
-        }
-
-        .settings-header p {
-            color: var(--clr-surface-a50);
-            font-size: 14px;
-        }
-
-        .settings-form .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-select {
-            width: 100%;
-            padding: 10px 12px;
-            background: var(--clr-surface-a20);
-            border: 1px solid var(--clr-surface-a30);
-            border-radius: 6px;
-            color: var(--clr-light-a0);
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-
-        .form-select:focus {
-            outline: none;
-            border-color: var(--clr-primary-a0);
-            background: var(--clr-surface-a30);
-        }
-
-        .alert {
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-
-        .alert-error {
-            background-color: rgba(248, 113, 113, 0.1);
-            border: 1px solid #f87171;
-            color: #fca5a5;
-        }
-
-        .alert-success {
-            background-color: rgba(74, 222, 128, 0.1);
-            border: 1px solid #4ade80;
-            color: #86efac;
-        }
-
-        @media (max-width: 768px) {
-            .settings-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Responsive Design für kleine Bildschirme */
-        @media (max-width: 768px) {
-            .settings-card table {
-                font-size: 0.85em;
-            }
-
-            .settings-card th,
-            .settings-card td {
-                padding: 8px !important;
-            }
-        }
-    </style>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Zeige erkannte Browser-Zeitzone
@@ -814,7 +727,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         function confirmDeleteUser(userId, username) {
             if (confirm(`Bist du sicher, dass du den Benutzer "${username}" löschen möchtest?\n\nDiese Aktion kann nicht rückgängig gemacht werden und löscht ALLE Daten dieses Benutzers!`)) {
-                window.location.href = `delete-user.php?id=${userId}`;
+                window.location.href = `/includes/delete_user.php?id=${userId}`;
             }
         }
     </script>

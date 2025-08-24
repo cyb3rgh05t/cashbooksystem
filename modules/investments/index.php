@@ -69,89 +69,6 @@ if (!empty($total_stats['api_error'])) {
     <link rel="stylesheet" href="../../assets/css/style.css">
     <link rel="stylesheet" href="../../assets/css/investments.css">
     <link rel="stylesheet" href="../../assets/css/sidebar.css">
-
-    <style>
-        .alert-warning {
-            background-color: rgba(251, 191, 36, 0.1);
-            border: 1px solid #fbbf24;
-            color: #fcd34d;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .investment-row.api-error {
-            background-color: rgba(248, 113, 113, 0.05);
-            border-left: 4px solid #f87171;
-        }
-
-        .price-unavailable {
-            color: #94a3b8;
-            font-style: italic;
-        }
-
-        .data-status {
-            font-size: 12px;
-            padding: 2px 8px;
-            border-radius: 4px;
-            display: inline-block;
-            margin-left: 8px;
-        }
-
-        .data-status.current {
-            background-color: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-        }
-
-        .data-status.unavailable {
-            background-color: rgba(248, 113, 113, 0.2);
-            color: #f87171;
-        }
-
-        .api-error-details {
-            grid-column: 1 / -1;
-            padding: 8px 12px;
-            background-color: rgba(248, 113, 113, 0.1);
-            border-radius: 4px;
-            margin-top: 8px;
-        }
-
-        .system-status {
-            background-color: rgba(59, 130, 246, 0.1);
-            border: 1px solid #3b82f6;
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-
-        .system-status .status-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-        }
-
-        .system-status .status-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .status-indicator {
-            font-size: 12px;
-            padding: 2px 6px;
-            border-radius: 3px;
-        }
-
-        .status-indicator.online {
-            background-color: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-        }
-
-        .status-indicator.offline {
-            background-color: rgba(248, 113, 113, 0.2);
-            color: #f87171;
-        }
-    </style>
 </head>
 
 <body>
@@ -179,6 +96,8 @@ if (!empty($total_stats['api_error'])) {
                         <a style="margin-top: 20px; border-top: 1px solid var(--clr-surface-a20); padding-top: 20px;" href="../../settings.php">
                             <i class="fa-solid fa-gear"></i>&nbsp;&nbsp;Einstellungen
                         </a>
+                    </li>
+                    <li><a href="modules/settings/license.php"><i class="fas fa-key"></i>&nbsp;&nbsp;Lizenz</a></li>
                     <li>
                         <a href="../../logout.php"><i class="fa-solid fa-right-from-bracket"></i>&nbsp;&nbsp;Logout</a>
                     </li>

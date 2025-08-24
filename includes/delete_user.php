@@ -1,7 +1,7 @@
 <?php
-require_once 'includes/auth.php';
-require_once 'config/database.php';
-require_once 'includes/init_logger.php';
+require_once 'auth.php';
+require_once '../config/database.php';
+require_once 'init_logger.php';
 
 // Require login
 $auth->requireLogin();
@@ -12,7 +12,7 @@ $currentUser = $auth->getCurrentUser();
 // Nur Admins dürfen diese Seite aufrufen
 if ($currentUser['role'] !== 'admin') {
     $_SESSION['error'] = 'Keine Berechtigung für diese Aktion.';
-    header('Location: settings.php');
+    header('Location: ../settings.php');
     exit;
 }
 
@@ -24,7 +24,7 @@ $user_id_to_delete = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if ($user_id_to_delete <= 0) {
     $_SESSION['error'] = 'Ungültige Benutzer-ID.';
-    header('Location: settings.php');
+    header('Location: ../settings.php');
     exit;
 }
 
@@ -56,5 +56,5 @@ if ($result['success']) {
 }
 
 // Zurück zu den Settings
-header('Location: settings.php');
+header('Location: ../settings.php');
 exit;
