@@ -20,7 +20,7 @@ $db = new Database();
 $pdo = $db->getConnection();
 
 // Filter-Parameter
-$selected_month = $_GET['month'] ?? date('Y-m');
+$selected_month = $_GET['month'] ?? '';
 $selected_category = $_GET['category'] ?? '';
 $search = $_GET['search'] ?? '';
 
@@ -39,7 +39,7 @@ $sql = "
 
 $params = [];
 
-if ($selected_month) {
+if ($selected_month && $selected_month !== '') {
     $sql .= " AND strftime('%Y-%m', t.date) = ?";
     $params[] = $selected_month;
 }
@@ -156,7 +156,9 @@ if (isset($_SESSION['error'])) {
                         <div class="stat-label">Durchschnitt</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value"><?= date('F Y', strtotime($selected_month . '-01')) ?></div>
+                        <div class="stat-value">
+                            <?= $selected_month ? date('F Y', strtotime($selected_month . '-01')) : 'Alle Monate' ?>
+                        </div>
                         <div class="stat-label">Zeitraum</div>
                     </div>
                 </div>
@@ -166,7 +168,28 @@ if (isset($_SESSION['error'])) {
             <form method="GET" class="filters">
                 <div class="filter-group">
                     <label class="filter-label">Monat</label>
-                    <input type="month" name="month" value="<?= htmlspecialchars($selected_month) ?>" class="form-input">
+                    <select name="month" class="form-select" onchange="this.form.submit()">
+                        <option value="">Alle Monate</option>
+                        <?php
+                        // Verfügbare Monate aus der Datenbank holen
+                        $stmt_months = $pdo->prepare("
+            SELECT DISTINCT strftime('%Y-%m', date) as month 
+            FROM transactions t
+            JOIN categories c ON t.category_id = c.id
+            WHERE c.type = 'expense'
+            ORDER BY month DESC
+        ");
+                        $stmt_months->execute();
+                        $available_months = $stmt_months->fetchAll(PDO::FETCH_COLUMN);
+
+                        foreach ($available_months as $month):
+                            $month_display = date('F Y', strtotime($month . '-01'));
+                        ?>
+                            <option value="<?= $month ?>" <?= $selected_month === $month ? 'selected' : '' ?>>
+                                <?= $month_display ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
                 <div class="filter-group">

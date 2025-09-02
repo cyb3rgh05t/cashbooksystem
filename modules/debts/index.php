@@ -20,7 +20,7 @@ $db = new Database();
 $pdo = $db->getConnection();
 
 // Filter-Parameter
-$filter_month = $_GET['month'] ?? date('Y-m');
+$filter_month = $_GET['month'] ?? ''; // Leer = Alle Monate
 
 // Schulden-Kategorien laden (debt_in und debt_out)
 $stmt = $pdo->prepare("SELECT * FROM categories WHERE type IN ('debt_in', 'debt_out') ORDER BY name");
@@ -28,44 +28,77 @@ $stmt->execute();
 $debt_categories = $stmt->fetchAll();
 
 // Outgoing Debts (Firma leiht Geld an andere)
-$stmt = $pdo->prepare("
+$sql = "
     SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color
     FROM transactions t
     JOIN categories c ON t.category_id = c.id
-    WHERE c.type = 'debt_out' AND strftime('%Y-%m', t.date) = ?
-    ORDER BY t.date DESC, t.created_at DESC
-");
-$stmt->execute([$filter_month]);
+    WHERE c.type = 'debt_out'
+";
+
+$params = [];
+if ($filter_month && $filter_month !== '') {
+    $sql .= " AND strftime('%Y-%m', t.date) = ?";
+    $params[] = $filter_month;
+}
+$sql .= " ORDER BY t.date DESC, t.created_at DESC";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
 $outgoing_debts = $stmt->fetchAll();
 
 // Incoming Debts (Firma bekommt Geld von anderen)
-$stmt = $pdo->prepare("
+$sql = "
     SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color
     FROM transactions t
     JOIN categories c ON t.category_id = c.id
-    WHERE c.type = 'debt_in' AND strftime('%Y-%m', t.date) = ?
-    ORDER BY t.date DESC, t.created_at DESC
-");
-$stmt->execute([$filter_month]);
+    WHERE c.type = 'debt_in'
+";
+
+$params = [];
+if ($filter_month && $filter_month !== '') {
+    $sql .= " AND strftime('%Y-%m', t.date) = ?";
+    $params[] = $filter_month;
+}
+$sql .= " ORDER BY t.date DESC, t.created_at DESC";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
 $incoming_debts = $stmt->fetchAll();
 
-// Statistiken
-$stmt = $pdo->prepare("
+// Statistiken - Total Outgoing
+$sql = "
     SELECT COALESCE(SUM(t.amount), 0) as total 
     FROM transactions t
     JOIN categories c ON t.category_id = c.id
-    WHERE c.type = 'debt_out' AND strftime('%Y-%m', t.date) = ?
-");
-$stmt->execute([$filter_month]);
+    WHERE c.type = 'debt_out'
+";
+
+$params = [];
+if ($filter_month && $filter_month !== '') {
+    $sql .= " AND strftime('%Y-%m', t.date) = ?";
+    $params[] = $filter_month;
+}
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
 $total_outgoing = $stmt->fetchColumn();
 
-$stmt = $pdo->prepare("
+// Statistiken - Total Incoming
+$sql = "
     SELECT COALESCE(SUM(t.amount), 0) as total 
     FROM transactions t
     JOIN categories c ON t.category_id = c.id
-    WHERE c.type = 'debt_in' AND strftime('%Y-%m', t.date) = ?
-");
-$stmt->execute([$filter_month]);
+    WHERE c.type = 'debt_in'
+";
+
+$params = [];
+if ($filter_month && $filter_month !== '') {
+    $sql .= " AND strftime('%Y-%m', t.date) = ?";
+    $params[] = $filter_month;
+}
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
 $total_incoming = $stmt->fetchColumn();
 
 $net_position = $total_incoming - $total_outgoing;
@@ -145,35 +178,62 @@ if (isset($_SESSION['error'])) {
             <?= $message ?>
 
             <!-- Stats Cards -->
-            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 30px;">
+            <div class="stats-cards">
                 <div class="stat-card">
-
                     <div class="stat-value expense">€<?= number_format($total_outgoing, 2, ',', '.') ?></div>
                     <div class="stat-label">Verliehenes Geld</div>
                 </div>
 
                 <div class="stat-card">
-
                     <div class="stat-value income">€<?= number_format($total_incoming, 2, ',', '.') ?></div>
                     <div class="stat-label">Erhaltenes Geld</div>
                 </div>
 
                 <div class="stat-card">
-
                     <div class="stat-value <?= $net_position >= 0 ? 'income' : 'expense' ?>">
                         €<?= number_format($net_position, 2, ',', '.') ?>
                     </div>
                     <div class="stat-label">Netto-Position</div>
                 </div>
+
+                <div class="stat-card">
+                    <div class="stat-value" style="color: var(--clr-primary-a20);">
+                        <?= $filter_month ? date('F Y', strtotime($filter_month . '-01')) : 'Alle Monate' ?>
+                    </div>
+                    <div class="stat-label">Zeitraum</div>
+                </div>
             </div>
+
+
 
             <!-- Filter -->
             <div class="filter-section">
                 <form method="GET" class="filter-form">
                     <div class="form-group-inline">
                         <label for="month">Monat:</label>
-                        <input type="month" id="month" name="month" value="<?= htmlspecialchars($filter_month) ?>" class="form-input">
-                        <button type="submit" class="btn btn-small">Filtern</button>
+                        <select name="month" id="month" class="form-select" onchange="this.form.submit()" style="min-width: 200px;">
+                            <option value="">Alle Monate</option>
+                            <?php
+                            // Verfügbare Monate aus der Datenbank holen
+                            $stmt_months = $pdo->prepare("
+                                SELECT DISTINCT strftime('%Y-%m', date) as month 
+                                FROM transactions t
+                                JOIN categories c ON t.category_id = c.id
+                                WHERE c.type IN ('debt_in', 'debt_out')
+                                ORDER BY month DESC
+                            ");
+                            $stmt_months->execute();
+                            $available_months = $stmt_months->fetchAll(PDO::FETCH_COLUMN);
+
+                            foreach ($available_months as $month):
+                                $month_display = date('F Y', strtotime($month . '-01'));
+                            ?>
+                                <option value="<?= $month ?>" <?= $filter_month === $month ? 'selected' : '' ?>>
+                                    <?= $month_display ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <!-- Submit-Button entfernt, da auto-submit -->
                     </div>
                 </form>
             </div>
@@ -189,7 +249,7 @@ if (isset($_SESSION['error'])) {
                     <?php if (empty($outgoing_debts)): ?>
                         <div class="empty-state">
                             <h3>Keine Darlehen vergeben</h3>
-                            <p>Du hast in diesem Monat kein Geld verliehen.</p>
+                            <p><?= $filter_month ? 'Du hast in diesem Monat kein Geld verliehen.' : 'Du hast noch kein Geld verliehen.' ?></p>
                             <a href="add.php?type=debt_out" class="btn btn-small">+ Geld verleihen</a>
                         </div>
                     <?php else: ?>
@@ -216,7 +276,7 @@ if (isset($_SESSION['error'])) {
                                     <div class="transaction-actions">
                                         <a href="edit.php?id=<?= $debt['id'] ?>" class="btn btn-icon btn-edit"><i class="fa-solid fa-pen-to-square"></i></a>
                                         <a href="delete.php?id=<?= $debt['id'] ?>"
-                                            ('Sicher löschen?')"
+                                            onclick="return confirm('Sicher löschen?')"
                                             class="btn btn-icon btn-delete"><i class="fa-solid fa-trash-can"></i></a>
                                     </div>
                                 </div>
@@ -234,7 +294,7 @@ if (isset($_SESSION['error'])) {
                     <?php if (empty($incoming_debts)): ?>
                         <div class="empty-state">
                             <h3>Kein Geld erhalten</h3>
-                            <p>Du hast in diesem Monat kein Geld geliehen bekommen.</p>
+                            <p><?= $filter_month ? 'Du hast in diesem Monat kein Geld geliehen bekommen.' : 'Du hast noch kein Geld geliehen bekommen.' ?></p>
                             <a href="add.php?type=debt_in" class="btn btn-small">+ Geld erhalten / leihen</a>
                         </div>
                     <?php else: ?>
@@ -261,8 +321,8 @@ if (isset($_SESSION['error'])) {
                                     <div class="transaction-actions">
                                         <a href="edit.php?id=<?= $debt['id'] ?>" class="btn btn-icon btn-edit"><i class="fa-solid fa-pen-to-square"></i></a>
                                         <a href="delete.php?id=<?= $debt['id'] ?>"
-
-                                            class="btn btn-icon btn-delete"> <i class="fa-solid fa-trash-can"></i></a>
+                                            onclick="return confirm('Sicher löschen?')"
+                                            class="btn btn-icon btn-delete"><i class="fa-solid fa-trash-can"></i></a>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
