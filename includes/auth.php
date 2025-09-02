@@ -346,55 +346,41 @@ class Auth
             }
         }
 
-        // STRIKTE LIZENZPRÜFUNG - JEDE MINUTE!
-        if ($this->licensingEnabled && $this->license !== null) {
-            $lastCheck = $_SESSION['last_license_check'] ?? 0;
+        // NUR DIESE ZEILE GEÄNDERT: 1800 statt 60 Sekunden (30 Minuten statt 1 Minute)
+        if (!isset($_SESSION['last_license_check']) || (time() - $_SESSION['last_license_check']) > 1800) {
             $now = time();
-            $timeSinceCheck = $now - $lastCheck;
+            $this->debugLog("License check needed (30 min interval)");
 
-            // Debug-Log alle 10 Sekunden
-            if ($timeSinceCheck > 10) {
-                $this->debugLog("License check status", [
-                    'time_since_last_check' => $timeSinceCheck . 's',
-                    'next_check_in' => max(0, $this->licenseCheckInterval - $timeSinceCheck) . 's'
-                ]);
+            $globalLicenseKey = $_SESSION['global_license_key'] ?? null;
+
+            if (!$globalLicenseKey || !$this->license) {
+                $this->debugLog("No license key or system - logout");
+                $this->logout();
+                $_SESSION['error'] = 'Keine Systemlizenz vorhanden.';
+                return false;
             }
 
-            // Prüfe jede Minute
-            if ($timeSinceCheck >= $this->licenseCheckInterval) {
-                $this->debugLog("PERFORMING LICENSE CHECK NOW!");
+            // GLEICHE LOGIK WIE VORHER: Cache löschen und online prüfen
+            $this->clearLicenseCache();
+            $validation = $this->license->validateLicense($globalLicenseKey, true); // FORCE ONLINE
 
-                $globalLicenseKey = $_SESSION['global_license_key'] ?? $this->getGlobalLicenseKey();
+            $this->debugLog("License revalidation result", [
+                'valid' => $validation['valid'],
+                'error' => $validation['error'] ?? null
+            ]);
 
-                if (!$globalLicenseKey) {
-                    $this->debugLog("NO LICENSE - FORCING LOGOUT!");
-                    $this->logout();
-                    $_SESSION['error'] = 'Keine Systemlizenz gefunden.';
-                    return false;
-                }
-
-                // IMMER ONLINE PRÜFEN - KEIN CACHE!
-                $this->clearLicenseCache();
-                $validation = $this->license->validateLicense($globalLicenseKey, true); // FORCE ONLINE
-
-                $this->debugLog("License revalidation result", [
-                    'valid' => $validation['valid'],
-                    'error' => $validation['error'] ?? null
-                ]);
-
-                if (!$validation['valid']) {
-                    $this->debugLog("LICENSE INVALID - FORCING LOGOUT!");
-                    $this->logout();
-                    $_SESSION['error'] = 'Systemlizenz ungültig oder abgelaufen: ' . ($validation['error'] ?? '');
-                    return false;
-                }
-
-                // Update Session
-                $this->license->storeLicenseInSession($globalLicenseKey, $validation);
-                $_SESSION['last_license_check'] = $now;
-
-                $this->debugLog("License check passed - session continues");
+            if (!$validation['valid']) {
+                $this->debugLog("LICENSE INVALID - FORCING LOGOUT!");
+                $this->logout();
+                $_SESSION['error'] = 'Systemlizenz ungültig oder abgelaufen: ' . ($validation['error'] ?? '');
+                return false;
             }
+
+            // Update Session
+            $this->license->storeLicenseInSession($globalLicenseKey, $validation);
+            $_SESSION['last_license_check'] = $now;
+
+            $this->debugLog("License check passed - session continues");
         }
 
         // Update last activity

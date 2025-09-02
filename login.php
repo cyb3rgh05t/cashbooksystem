@@ -86,6 +86,7 @@ if (isset($_SESSION['logout_message'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Meine Firma Finance</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
         .login-container {
@@ -240,7 +241,7 @@ if (isset($_SESSION['logout_message'])) {
             <!-- Demo Credentials -->
             <div class="demo-info">
                 <div class="demo-info-title">
-                    Demo-Zugangsdaten
+                    <i class="fas fa-info-circle"></i> Demo-Zugangsdaten
                 </div>
                 <div class="demo-credentials">
                     <div class="demo-credential">
@@ -354,7 +355,6 @@ if (isset($_SESSION['logout_message'])) {
                     console.error('openLicenseModal function not found');
                 }
             }
-            // KEIN else - wenn kein require_license Parameter, dann NICHTS tun!
         });
     </script>
 

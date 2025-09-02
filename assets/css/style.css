@@ -14,6 +14,7 @@
 
   /* Theme surface colors */
   --clr-surface-a0: #141414;
+  --clr-surface-a05: #1f1f1f;
   --clr-surface-a10: #292929;
   --clr-surface-a20: #404040;
   --clr-surface-a30: #585858;
@@ -180,7 +181,7 @@ body {
 .form-textarea {
   width: 100%;
   padding: 12px;
-  background-color: var(--clr-surface-a10);
+  background-color: var(--clr-surface-a05);
   border: 1px solid var(--clr-surface-a20);
   border-radius: 6px;
   color: var(--clr-light-a0);

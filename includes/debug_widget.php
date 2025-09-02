@@ -9,7 +9,7 @@
 $debugLogs = $auth->getDebugLogs();
 $lastCheck = $_SESSION['last_license_check'] ?? 0;
 $timeSinceCheck = time() - $lastCheck;
-$nextCheckIn = max(0, 60 - $timeSinceCheck); // Check alle 60 Sekunden
+$nextCheckIn = max(0, 1800 - $timeSinceCheck); // Check alle 60 Sekunden
 ?>
 
 <!-- Debug Console -->

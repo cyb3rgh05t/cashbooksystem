@@ -1,11 +1,5 @@
 <?php
 
-/**
- * AJAX Endpoint zum Setzen der Zeitzone - KORRIGIERTE VERSION
- * Überschreibt NICHT manuelle Einstellungen
- * Speichere als: ajax/set_timezone.php
- */
-
 session_start();
 require_once '../includes/timezone.php';
 
