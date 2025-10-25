@@ -178,7 +178,7 @@ if (isset($_SESSION['error'])) {
             <?= $message ?>
 
             <!-- Stats Cards -->
-            <div class="stats-cards">
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 30px;">
                 <div class="stat-card">
                     <div class="stat-value expense">€<?= number_format($total_outgoing, 2, ',', '.') ?></div>
                     <div class="stat-label">Verliehenes Geld</div>
@@ -203,8 +203,6 @@ if (isset($_SESSION['error'])) {
                     <div class="stat-label">Zeitraum</div>
                 </div>
             </div>
-
-
 
             <!-- Filter -->
             <div class="filter-section">
