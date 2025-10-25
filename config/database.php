@@ -85,7 +85,10 @@ class Database
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 timezone TEXT DEFAULT 'Europe/Berlin',
                 timezone_manual INTEGER DEFAULT 0,
-                license_key TEXT
+                license_key TEXT,
+                two_factor_enabled INTEGER DEFAULT 0,
+                two_factor_secret TEXT,
+                backup_codes TEXT
             );
 
             CREATE TABLE IF NOT EXISTS license_cache (
@@ -357,6 +360,19 @@ class Database
 
             if (!in_array('updated_at', $columnNames)) {
                 $pdo->exec("ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+            }
+
+            // Add 2FA columns
+            if (!in_array('two_factor_enabled', $columnNames)) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN two_factor_enabled INTEGER DEFAULT 0");
+            }
+
+            if (!in_array('two_factor_secret', $columnNames)) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN two_factor_secret TEXT");
+            }
+
+            if (!in_array('backup_codes', $columnNames)) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN backup_codes TEXT");
             }
 
             // Migriere password_hash zu password wenn nötig

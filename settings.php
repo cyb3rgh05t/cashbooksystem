@@ -421,6 +421,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </form>
                 </div>
 
+                <!-- Zwei-Faktor-Authentifizierung -->
+                <div class="settings-card">
+                    <div class="settings-header">
+                        <h2><i class="fa-solid fa-shield-alt"></i>&nbsp;&nbsp;Zwei-Faktor-Authentifizierung</h2>
+                        <p>Erhöhe die Sicherheit deines Kontos</p>
+                    </div>
+                    <?php
+                    require_once 'includes/two_factor.class.php';
+                    $twoFactor = new TwoFactorAuth($pdo, $auth->getLogger());
+                    $is2FAEnabled = $twoFactor->isEnabled($user_id);
+                    ?>
+                    <div style="padding: 20px 0;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                            <div>
+                                <strong>Status:</strong>
+                                <span style="margin-left: 10px; padding: 5px 15px; border-radius: 20px; font-size: 0.9em; font-weight: 600; <?php echo $is2FAEnabled ? 'background: var(--clr-accent-green-a10); color: var(--clr-accent-green);' : 'background: var(--clr-surface-a10); color: var(--clr-on-surface-variant);'; ?>">
+                                    <?php echo $is2FAEnabled ? 'Aktiviert' : 'Deaktiviert'; ?>
+                                </span>
+                            </div>
+                        </div>
+                        <p style="color: var(--clr-on-surface-variant); margin-bottom: 20px;">
+                            <?php if ($is2FAEnabled): ?>
+                                2FA ist aktiviert. Du benötigst einen Code von deiner Authenticator-App beim Login.
+                            <?php else: ?>
+                                Schütze dein Konto mit einem zusätzlichen Sicherheitsfaktor. Du benötigst eine Authenticator-App wie Google Authenticator oder Microsoft Authenticator.
+                            <?php endif; ?>
+                        </p>
+                        <a href="modules/settings/two_factor.php" class="btn btn-primary">
+                            <i class="fa-solid fa-<?php echo $is2FAEnabled ? 'cog' : 'plus'; ?>"></i>&nbsp;&nbsp;
+                            <?php echo $is2FAEnabled ? '2FA verwalten' : '2FA einrichten'; ?>
+                        </a>
+                    </div>
+                </div>
+
                 <?php if (canEditStartingBalance($currentUser)): ?>
                     <!-- Startkapital (nur für Admins) -->
                     <div class="settings-card">

@@ -24,7 +24,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $result = $auth->login($username, $password);
 
     if ($result['success']) {
-        // Login erfolgreich
+        // Check if 2FA is required
+        if (isset($result['require_2fa']) && $result['require_2fa']) {
+            // Redirect to 2FA verification page
+            header('Location: ../verify_2fa.php');
+            exit;
+        }
+
+        // Login erfolgreich (ohne 2FA)
         $_SESSION['success'] = 'Erfolgreich angemeldet!';
         header('Location: ../dashboard.php');
         exit;

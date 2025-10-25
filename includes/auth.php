@@ -227,7 +227,26 @@ class Auth
             $_SESSION['last_license_check'] = time();
         }
 
-        // Login erfolgreich
+        // Check if user has 2FA enabled
+        if ($user['two_factor_enabled'] == 1) {
+            $this->debugLog("User has 2FA enabled, redirecting to verification");
+
+            // Store user info in session for 2FA verification
+            $_SESSION['pending_2fa_user_id'] = $user['id'];
+            $_SESSION['pending_2fa_username'] = $user['username'];
+            $_SESSION['pending_2fa_role'] = $user['role'] ?? 'user';
+            $_SESSION['2fa_timestamp'] = time();
+
+            $this->logger->info("2FA required for login", $user['id'], 'AUTH');
+
+            return [
+                'success' => true,
+                'require_2fa' => true,
+                'message' => 'Bitte geben Sie Ihren 2FA-Code ein'
+            ];
+        }
+
+        // Login erfolgreich (ohne 2FA)
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['user_role'] = $user['role'] ?? 'user';
@@ -566,6 +585,14 @@ class Auth
     public function getLicenseHelper()
     {
         return $this->license;
+    }
+
+    /**
+     * Get Logger Instance
+     */
+    public function getLogger()
+    {
+        return $this->logger;
     }
 
     /**
